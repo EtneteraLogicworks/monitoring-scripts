@@ -4,10 +4,12 @@
 #		SNMP Printer Check			#
 #							#
 # check_snmp_printer					#
-# 	Version 4.0 (June 9th, 2016)			#
+# 	Version 4.1 (December 5th, 2019)			#
 #							#
-# Authored by Jason Leonard				#
+# Authored by Jason Leonard (-2016)				#
 # 	E-mail: jason_leonard@yahoo.com			#
+# Changes by Michal Moravec (2019-)			#
+# 	E-mail: michal.moravec@logicworks.cz			#
 #							#
 # Overview						#
 # ----------------------------------------------------- #
@@ -58,6 +60,7 @@ VERSION="4.0"
 COMMUNITY='public'
 HOST_NAME='localhost'
 SNMPVERSION='2c'
+CONTEXTNAME=""
 
 # State Variables
 STATE_OK=0
@@ -168,6 +171,9 @@ function print_help {
 	echo "		SNMP v2 community string with Read access. Default is 'public'. REQUIRED OPTION"
 	echo '	-u|--user'
 	echo '		SNMP v3 username'
+	echo '	-n|--contextname'
+	echo '		used for SNMPv3 messages'
+	echo '		Default is the empty string'
 	echo '	-l|--privlevel { noAuthNoPriv | authNoPriv | authPriv }'
 	echo '		SNMP v3 privilege level'
 	echo '	-x|--privprotocol { DES | AES }'
@@ -890,7 +896,7 @@ walk_snmp(){
 	fi
 
 	if [[ $SNMPVERSION = 3 ]]; then
-		RESULT_TEXT=`snmpwalk -v $SNMPVERSION $OUTPUT_OPTIONS -u $SNMPUSER -l $PRIVILEGELEVEL -x $PRIVACYPROTOCOL -X $PRIVACYPASSWORD -a $AUTHPROTOCOL -A $AUTHPASSWORD $HOST_NAME $1`
+		RESULT_TEXT=`snmpwalk -v $SNMPVERSION $OUTPUT_OPTIONS -u $SNMPUSER -n "$CONTEXTNAME" -l $PRIVILEGELEVEL -x $PRIVACYPROTOCOL -X $PRIVACYPASSWORD -a $AUTHPROTOCOL -A $AUTHPASSWORD $HOST_NAME $1`
 		RESULT_CODE=$?
 	else
 		# Check if community was also set
@@ -968,7 +974,11 @@ while test -n "$1"; do
 		--user|-u)
 			SNMPUSER=$2
 			shift
-			;;			
+			;;
+		--contextname|-n)
+			CONTEXTNAME=$2
+			shift
+			;;
 		--privelegelevel|-l)
 			PRIVILEGELEVEL=$2
 			shift
