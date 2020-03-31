@@ -105,7 +105,7 @@ def add_performace_data(message, interfaces, total_clients, config):
             radio = "5"
         message += (
             f' \'{interface["unifiVapName"]} '
-            f'({interface["unifiVapEssId"]}:{radio})\' '
+            f'({interface["unifiVapEssId"]}:{radio})\''
             f'={interface["unifiVapNumStations"]};;;0;'
         )
 
