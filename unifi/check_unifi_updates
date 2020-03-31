@@ -1,0 +1,211 @@
+#!/usr/bin/env python3
+"""check_unifi_updates
+
+Script checks if UniFi device firmware is up to date.
+Installed firmware version is retrieved via SNMPv3 using pysnmp library.
+Latest available firmware version is retrieved via ubnt.com API (See UNIFI_RELEASES_URL)
+"""
+
+import argparse
+import re
+import sys
+
+import requests
+from pysnmp.hlapi import (
+    ContextData,
+    ObjectIdentity,
+    ObjectType,
+    SnmpEngine,
+    UdpTransportTarget,
+    UsmUserData,
+    getCmd,
+    usmAesCfb128Protocol,
+    usmHMACSHAAuthProtocol,
+)
+
+AUTH_PROTOCOL = usmHMACSHAAuthProtocol
+PRIV_PROTOCOL = usmAesCfb128Protocol
+SNMP_PORT = 161
+
+UNIFI_RELEASES_URL = "https://fw-update.ubnt.com/api/firmware-latest"
+UNIFI_IDENTIFIERS = {
+    "UAP-AC-EDU": "U7PG2",
+    "UAP–AC–IW": "U7PG2",
+    "UAP–AC–IW–PRO": "U7PG2",
+    "UAP-AC-LITE": "U7PG2",
+    "UAP-AC-LR": "U7PG2",
+    "UAP-AC-M": "U7PG2",
+    "UAP-AC-M-PRO": "U7PG2",
+    "UAP-AC-PRO": "U7PG2",
+    "UA-FlexHD": "U7NHD",
+    "UAP-BeaconHD": "U7NHD",
+    "UAP-IW-HD": "U7NHD",
+    "UAP-nanoHD": "U7NHD",
+    "UAP-IW": "U2IW",
+    "UAP-Outdoor+": "U2HSR",
+    "UAP-HD": "U7HD",
+    "UAP-SHD": "U7HD",
+    "UAP‑XG": "U7HD",
+    "UWB‑XG": "U7HD",
+    "UWB‑XG‑BK": "U7HD",
+    "UAP": "BZ2",
+    "UAP-LR": "BZ2",
+    "UAP-Outdoor": "BZ2",
+    "UAP-Outdoor5": "BZ2",
+    "UAP-v2": "U2Sv2",
+    "UAP-LR-v2": "U2Sv2",
+    "UAP-PRO": "U7P",
+}
+
+
+def unknown_exit(message):
+    """Exit in unknown state when SNMP query fails"""
+    print(f"UNIFI VERSION UNKNOWN - {message}")
+    sys.exit(3)
+
+
+def add_data_to_set(dataset, varBinds):
+    """Parse single SNMP response"""
+    for varBind in varBinds:
+        var, value = [x.prettyPrint() for x in varBind]
+        column_name = re.search("(unifi.*)[.]", var).group(1)
+        dataset[column_name] = value
+
+
+def get_snmp_data(config):
+    """Retrieve necessary data via SNMP"""
+    authdata = UsmUserData(
+        config["user"],
+        authKey=config["authpassword"],
+        privKey=config["privpassword"],
+        authProtocol=AUTH_PROTOCOL,
+        privProtocol=PRIV_PROTOCOL,
+    )
+    target = UdpTransportTarget((config["host"], config["port"]))
+    unifi_model = ObjectType(ObjectIdentity("UBNT-UniFi-MIB", "unifiApSystemModel", 0))
+    unifi_version = ObjectType(
+        ObjectIdentity("UBNT-UniFi-MIB", "unifiApSystemVersion", 0)
+    )
+
+    dataset = {}
+    errorIndication, errorStatus, errorIndex, varBinds = next(
+        getCmd(
+            SnmpEngine(), authdata, target, ContextData(), unifi_model, unifi_version,
+        )
+    )
+    if errorIndication:
+        unknown_exit(errorIndication)
+    elif errorStatus:
+        status = errorStatus.prettyPrint()
+        index = errorIndex and varBinds[int(errorIndex) - 1][0] or "?"
+        unknown_exit(f"{status} at {index}")
+    else:
+        add_data_to_set(dataset, varBinds)
+    return dataset
+
+
+def check_snmp_data(dataset):
+    """Check information from SNMP"""
+    if not dataset.get("unifiApSystemVersion", None):
+        unknown_exit(f"Unable to get device version via SNMP")
+    if not dataset.get("unifiApSystemModel", None):
+        unknown_exit(f"Unable to get device model via SNMP")
+
+
+def normalize_version(raw_version):
+    """Strip unwanted characters from the retrieved version"""
+    version_string = re.sub("[a-zA-Z]", "", raw_version)
+    version_string = version_string.replace("+", ".")
+    return version_string
+
+
+def fetch_latest_version(unifi_model):
+    """Obtain latest available firmware version for the device from the UBNT API"""
+    try:
+        r = requests.get(UNIFI_RELEASES_URL)
+        list_of_devices = r.json()["_embedded"]["firmware"]
+    except (requests.exceptions.RequestException, ValueError) as e:
+        unknown_exit(e)
+
+    my_device = UNIFI_IDENTIFIERS.get(unifi_model, None)
+    if my_device is None:
+        unknown_exit(f"Unknown device model: {unifi_model}")
+
+    device_item = next(
+        (
+            device
+            for device in list_of_devices
+            if device["channel"] == "release" and device["platform"] == my_device
+        ),
+        None,
+    )
+    if device_item is None:
+        unknown_exit(f"Unable to find updates for device: {unifi_model}")
+    return device_item["version"]
+
+
+def generate_output(installed_version, normalized_current_version):
+    """Prepare message string and exit code"""
+    if installed_version != normalized_current_version:
+        state = "WARNING"
+        message = (
+            f"UNIFI VERSION {state} - firmware version {installed_version} "
+            f"differs from lates available {normalized_current_version}"
+        )
+    else:
+        state = "OK"
+        message = f"UNIFI VERSION {state} - Firmware {installed_version} is current"
+
+    return state, message
+
+
+def report(state, message):
+    """Print message string and exit"""
+    print(message)
+    if state == "OK":
+        sys.exit(0)
+    elif state == "WARNING":
+        sys.exit(1)
+    elif state == "CRITICAL":
+        sys.exit(2)
+    elif state == "UNKNOWN":
+        sys.exit(3)
+
+
+def main():
+    """Parse args and check if UniFi has latest firmware installed"""
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+
+    parser.add_argument(
+        "-H", "--host", required=True, help="Name or IPv4 address of host to check"
+    )
+    parser.add_argument(
+        "-P", "--port", default=SNMP_PORT, help=f"SNMP port (Default {SNMP_PORT})"
+    )
+    parser.add_argument(
+        "-u", "--user", required=True, help="User for snmpv3 authentication "
+    )
+    parser.add_argument(
+        "-x",
+        "--authpassword",
+        required=True,
+        help="Password for snmpv3 authentication ",
+    )
+    parser.add_argument(
+        "-X", "--privpassword", required=True, help="Privacy password for snmpv3"
+    )
+
+    config = vars(parser.parse_args())
+    dataset = get_snmp_data(config)
+    check_snmp_data(dataset)
+    installed_version = dataset["unifiApSystemVersion"]
+    raw_latest_version = fetch_latest_version(dataset["unifiApSystemModel"])
+    normalized_latest_version = normalize_version(raw_latest_version)
+    state, message = generate_output(installed_version, normalized_latest_version)
+    report(state, message)
+
+
+if __name__ == "__main__":
+    main()
