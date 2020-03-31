@@ -50,13 +50,13 @@ def get_snmp_data(config):
     """Retrieve necessary data via SNMP"""
     snmp = SnmpEngine()
     authdata = UsmUserData(
-        config["login"],
-        authKey=config["passwd"],
-        privKey=config["privpass"],
+        config["user"],
+        authKey=config["authpassword"],
+        privKey=config["privpassword"],
         authProtocol=AUTH_PROTOCOL,
         privProtocol=PRIV_PROTOCOL,
     )
-    target = UdpTransportTarget((config["hostname"], config["port"]))
+    target = UdpTransportTarget((config["host"], config["port"]))
     unifi_vap_name = ObjectType(ObjectIdentity("UBNT-UniFi-MIB", "unifiVapName"))
     unifi_vap_stations = ObjectType(
         ObjectIdentity("UBNT-UniFi-MIB", "unifiVapNumStations")
@@ -149,19 +149,19 @@ def main():
     )
 
     parser.add_argument(
-        "-H", "--hostname", required=True, help="Name or IPv4 address of host to check"
+        "-H", "--host", required=True, help="Name or IPv4 address of host to check"
     )
     parser.add_argument(
         "-P", "--port", default=SNMP_PORT, help=f"SNMP port (Default {SNMP_PORT})"
     )
     parser.add_argument(
-        "-l", "--login", required=True, help="Login for snmpv3 authentication "
+        "-u", "--user", required=True, help="User for snmpv3 authentication "
     )
     parser.add_argument(
-        "-x", "--passwd", required=True, help="Password for snmpv3 authentication "
+        "-x", "--authpassword", required=True, help="Password for snmpv3 authentication "
     )
     parser.add_argument(
-        "-X", "--privpass", required=True, help="Privacy password for snmpv3"
+        "-X", "--privpassword", required=True, help="Privacy password for snmpv3"
     )
     parser.add_argument(
         "-i",
