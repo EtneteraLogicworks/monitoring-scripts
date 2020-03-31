@@ -77,7 +77,7 @@ PARAMETER=""
 # Set a warning at 20% of consumable, if not passed
 WARNING=20
 
-# Set a critical at 5% of consumable, if not passed. The standard of 10 
+# Set a critical at 5% of consumable, if not passed. The standard of 10
 # seems to be high for most consumables, which move very slowly.
 CRITICAL=5
 
@@ -122,7 +122,7 @@ print_version() {
     echo "$APPNAME $VERSION"
 	echo "$AUTHOR"
 	echo ""
-	
+
 }
 
 #########################################################
@@ -137,7 +137,7 @@ print_usage(){
 	echo "Usage for SNMP v3:"
 	echo "	$APPNAME -H <host/IP> -t <type of check> -u <user> -x <protocol> -X <password> -a <protocol> -A <password> -l <security mode> [-S <character>] [-w <warning value>] [-c <critical value>]"
 	echo ''
-	
+
 }
 
 #########################################################
@@ -174,13 +174,13 @@ function print_help {
 	echo '		SNMP v3 privacy protocol'
 	echo '	-X|--privpassword'
 	echo '		SNMP v3 privacy password'
-	echo '	-a|--authprotocol { MD5 | SHA }'	
+	echo '	-a|--authprotocol { MD5 | SHA }'
 	echo '		SNMP v3 authentication protocol'
 	echo '	-A|--authpassword'
 	echo '		SNMP v3 authentication password'
 	echo '	-t|--type { consum | consumx | display | devices | messages | model | pagecount | status | tray }'
 	echo '		The check you want to perform for the printer.'
-	echo '		REQUIRED OPTION'  
+	echo '		REQUIRED OPTION'
 	echo '	-w|--warning'
 	echo '		Assign WARNING value, in %, for capacity checks'
 	echo '	-c|--critical'
@@ -238,7 +238,7 @@ function print_help {
 	echo ''
 
 	exit $STATE_UNK
-	
+
 }
 
 #########################################################
@@ -253,11 +253,11 @@ function CheckModel(){
 
 	SERIAL=`walk_snmp $OID_prtGeneralSerialNumber true`
 	check_snmp_error "$?" "$SERIAL"
-	
+
 	STATE_STRING="$MODEL, Serial # $SERIAL"
-	
+
 	return $STATE_OK
-	
+
 }
 
 #########################################################
@@ -278,9 +278,9 @@ function CheckMessages(){
 		MESSAGES=$(echo "$MESSAGES" | tr "\n" "\!")
 		STATE_STRING="$MESSAGES"
 	fi
-	
+
 	return $STATE
-	
+
 }
 
 #########################################################
@@ -293,12 +293,12 @@ function CheckPageCount(){
 
 	PAGE_COUNT=`walk_snmp $OID_prtMarkerLifeCount true`
 	check_snmp_error "$?" "$PAGE_COUNT"
-	
+
 	PERFDATA="'Pages'=$PAGE_COUNT"
 	PAGE_COUNT=$(echo $PAGE_COUNT | sed -e :x -e 's/\([0-9][0-9]*\)\([0-9][0-9][0-9]\)/\1,\2/' -e 'tx')
 	STATE_STRING="Pagecount is $PAGE_COUNT."
 	return $STATE
-	
+
 }
 
 #########################################################
@@ -331,7 +331,7 @@ function CheckPrinterStatus(){
 	STATUS_STATE=$STATE_OK
 	PRINTER_STATUS=`walk_snmp $OID_hrPrinterStatus true`
 	check_snmp_error "$?" "$PRINTER_STATUS"
-	
+
 	case "$PRINTER_STATUS" in
 		1|"other"|"other(1)")
 			STATE_STRING="CRITICAL: Printer status = $PRINTER_STATUS."
@@ -351,9 +351,9 @@ function CheckPrinterStatus(){
 			STATUS_STATE=$STATE_WARN
 		;;
 	esac
-	
+
 	return $STATUS_STATE
-	
+
 }
 
 #########################################################
@@ -367,14 +367,14 @@ function CheckDeviceStatus(){
 	DEVICE_NAME=""
 	DEVICE_IDS=`walk_snmp $OID_hrDeviceIndex true`
 	check_snmp_error "$?" "$DEVICE_IDS"
-	
+
 	for ID in $DEVICE_IDS
 	do
 		DEVICE_NAME=`walk_snmp $OID_hrDeviceDescr.$ID true`
 		check_snmp_error "$?" "$DEVICE_NAME"
-		
+
 		STATE_STRING="$STATE_STRING$DEVICE_NAME status is "
-		
+
 		DEVICE_STATUS=`walk_snmp $OID_hrDeviceStatus.$ID true`
 		check_snmp_error "$?" "$DEVICE_STATUS"
 
@@ -402,16 +402,16 @@ function CheckDeviceStatus(){
 				CURRENT_STATUS=$STATE_WARN
 			;;
 		esac
-		
+
 		if [ "$CURRENT_STATUS" -gt "$CURRENT_STATE" ]; then
 			CURRENT_STATE="$CURRENT_STATUS"
 		fi
 
 	done
-	
+
 	return $CURRENT_STATE
 
-} 
+}
 
 #########################################################
 ##	      CheckOneConsumable function	       ##
@@ -433,16 +433,16 @@ function CheckOneConsumable () {
 	MARKER_COLOR=""
 	MARKER_NAME=`walk_snmp $OID_prtMarkerSuppliesDescription.$1 true`
 	check_snmp_error "$?" "$MARKER_NAME"
-	
+
 	MARKER_NAME=$(echo "$MARKER_NAME" | tr -d ".")
 
-	# Some manufacturers don't put the actual cartridge color in the above OID text for 
-	#	MARKER_STRING. Instead, each entry just says "toner". The OID used here is 
-	#	a place where an associated color string must be stored. We are going to get this 
+	# Some manufacturers don't put the actual cartridge color in the above OID text for
+	#	MARKER_STRING. Instead, each entry just says "toner". The OID used here is
+	#	a place where an associated color string must be stored. We are going to get this
 	#	info. and use it if not already available in the MARKER_NAME we've parsed.
 	# --- Thanks to Martin Šoltis for letting me know about this problem on some copiers.
 	MARKER_COLOR=`walk_snmp $OID_prtMarkerColorantValue.$1 true`
-	
+
 	# We're just checking here to see if the consumable already has this color in its text description
 	if [ $(echo "$MARKER_NAME" | grep -vqi "$MARKER_COLOR") ]; then
 		# It doesn't, so we're going to add it
@@ -450,7 +450,7 @@ function CheckOneConsumable () {
 	fi
 
 	# As usual, if the results are an empty set, something went wrong or didn't match up
-	if [ -z "$MARKER_NAME" ]; then 
+	if [ -z "$MARKER_NAME" ]; then
 		STATE_STRING="UNKNOWN - OID not found! Your printer may not support checking this consumable."
 		STATE_STRING="$STATE_STRING Use the CONSUM TEST option to determine which consumables may be monitored."
 		PERFDATA=""
@@ -459,14 +459,14 @@ function CheckOneConsumable () {
 		# Determine capacities for the current marker
 		CURRENT_CAPACITY=`walk_snmp $OID_prtMarkerSuppliesLevel.$1 true`
 		check_snmp_error "$?" "$CURRENT_CAPACITY"
-		
+
 		MAX_CAPACITY=`walk_snmp $OID_prtMarkerSuppliesMaxCapacity.$1 true`
 		check_snmp_error "$?" "$MAX_CAPACITY"
-		
+
 		if [ "$MAX_CAPACITY" -lt 0 ]; then
 			MAX_CAPACITY=0
 		fi
-				
+
 		# the component does not have a measurable status indication
 		case "$CURRENT_CAPACITY" in
 			"-3") # A value of (-3) means that the printer knows that there is some supply/remaining space
@@ -484,28 +484,28 @@ function CheckOneConsumable () {
 			;;
 			*) # A positive value means this is a measurable component - let's report it's status code and let user know the % usage
 				let "CURRENT_CAPACITY=$CURRENT_CAPACITY * 100 / $MAX_CAPACITY"
-				if [ "$CURRENT_CAPACITY" -gt "$WARNING" ]; then 
+				if [ "$CURRENT_CAPACITY" -gt "$WARNING" ]; then
 					STATE_STRING="$STATE_STRING$MARKER_NAME is at $CURRENT_CAPACITY% - OK!$SEPARATOR"
-				else 
+				else
 					if [ "$CURRENT_CAPACITY" -le "$WARNING" ] && [ "$CURRENT_CAPACITY" -gt "$CRITICAL" ]; then
 						STATE_STRING="$MARKER_NAME is at $CURRENT_CAPACITY% - WARNING!$SEPARATOR$STATE_STRING"
 						if [ "$CONSUM_STATE" -lt 1 ]; then
 							CONSUM_STATE=$STATE_WARN
 						fi
-					else 
+					else
 						if [ "$CURRENT_CAPACITY" -le "$CRITICAL" ]; then
 							STATE_STRING="$MARKER_NAME is at $CURRENT_CAPACITY% - CRITICAL!$SEPARATOR$STATE_STRING"
 							CONSUM_STATE=$STATE_CRIT
 						fi
 					fi
-				fi						
+				fi
 			;;
-		esac	
-		
+		esac
+
 		PERFDATA="$PERFDATA '$MARKER_NAME'=$CURRENT_CAPACITY;$WARNING;$CRITICAL"
-		
+
 	fi
-	
+
 	return $CONSUM_STATE
 
 }
@@ -536,7 +536,7 @@ function CheckExactConsumable(){
 	while [[ $COUNT -le $NUM_MARKERS ]]
 	do
 		MARKER_NAME=$(echo "$ALL_MARKERS" | awk NR==$COUNT)
-		
+
 		# Update our boolean if we find a match!
 		if [ "$1" == "$MARKER_NAME" ]; then
 			FOUND=true
@@ -558,7 +558,7 @@ function CheckExactConsumable(){
 		if [[ "$MAX_CAPACITY" -lt 0 ]]; then
 			MAX_CAPACITY=0
 		fi
-		
+
 		# the component does not have a measurable status indication
 		case "$X_CURRENT_CAPACITY" in
 			"-3") # A value of (-3) means that the printer knows that there is some supply/remaining space
@@ -576,21 +576,21 @@ function CheckExactConsumable(){
 			;;
 			*) # A positive value means this is a measurable component - let's report it's status code and let user know the % usage
 				let "X_CURRENT_CAPACITY=$X_CURRENT_CAPACITY * 100 / $MAX_CAPACITY"
-				if [[ "$X_CURRENT_CAPACITY" -gt "$WARNING" ]]; then 
+				if [[ "$X_CURRENT_CAPACITY" -gt "$WARNING" ]]; then
 					STATE_STRING="$STATE_STRING$1 is at $X_CURRENT_CAPACITY% - OK!$SEPARATOR"
-				else 
+				else
 					if [[ "$X_CURRENT_CAPACITY" -le "$WARNING" ]] && [[ "$X_CURRENT_CAPACITY" -gt "$CRITICAL" ]]; then
 						STATE_STRING="$1 is at $X_CURRENT_CAPACITY% - WARNING!$SEPARATOR$STATE_STRING"
 						if [[ "$CONSUMX_STATE" -lt 1 ]]; then
 							CONSUMX_STATE=$STATE_WARN
 						fi
-					else 
+					else
 						if [[ "$X_CURRENT_CAPACITY" -le "$CRITICAL" ]]; then
 							STATE_STRING="$1 is at $X_CURRENT_CAPACITY% - CRITICAL!$SEPARATOR$STATE_STRING"
 							CONSUMX_STATE=$STATE_CRIT
 						fi
 					fi
-				fi						
+				fi
 			;;
 		esac
 		PERFDATA="$PERFDATA '$1'=$X_CURRENT_CAPACITY;$WARNING;$CRITICAL"
@@ -599,7 +599,7 @@ function CheckExactConsumable(){
 		STATE_STRING="UNKNOWN - No match found for '$1'! Use the CONSUM TEST option to determine which consumables may be monitored."
 		CONSUMX_STATE=$STATE_UNK
 	fi
-		
+
 	return $CONSUMX_STATE
 
 }
@@ -621,12 +621,12 @@ function CheckConsumables(){
 	HEX_MARKER=""
 	ASCII_MARKER=""
 	MARKERS_MATCHED=""
-	
+
 	case "$1" in
 		"test"|"TEST")	# User passed "TEST" parameter - output what consumables are available
 			ALL_MARKERS=`walk_snmp $OID_prtMarkerSuppliesDescription true`
 			check_snmp_error "$?" "$ALL_MARKERS"
-			
+
 			echo "Consumables you may monitor:"
 			STATE_STRING="$ALL_MARKERS"
 			CONSUMS_STATE=$STATE_UNK
@@ -634,7 +634,7 @@ function CheckConsumables(){
 		"all"|"ALL") # User passed ALL parameter - check everything!
 			ALL_MARKERS=`walk_snmp $OID_prtMarkerSuppliesDescription true`
 			check_snmp_error "$?" "$ALL_MARKERS"
-			
+
 			# Let's loop through all consumables available
 			#--- We can do this differently with my current "REWRITE"
 			COUNT=1
@@ -642,18 +642,18 @@ function CheckConsumables(){
 			while [[ $COUNT -le $NUM_MARKERS ]]; do
 				CheckOneConsumable $COUNT
 				CURRENT_STATUS=$?
-				
+
 				if [ "$CURRENT_STATUS" -gt "$CONSUMS_STATE" ]; then
 					CONSUMS_STATE="$CURRENT_STATUS"
 				fi
-				
+
 				COUNT=$[ $COUNT+1 ];
 			done
 		;;
 		*) # A string was passed, on which we will match to available consumable strings
 			ALL_MARKERS=`walk_snmp $OID_prtMarkerSuppliesDescription false`
 			check_snmp_error "$?" "$ALL_MARKERS"
-			
+
 			MARKERS_MATCHED=$(echo "$ALL_MARKERS" | egrep -i "$1")
 
 			if [ -z "$MARKERS_MATCHED" ]; then
@@ -663,11 +663,11 @@ function CheckConsumables(){
 				CONSUMS_STATE=$STATE_UNK
 			else
 				# Now we can loop through everything that matched
-				for MARKER_ID in $(echo "$MARKERS_MATCHED" | awk -F. '{print $8}' | awk -F= '{print $1}') 
+				for MARKER_ID in $(echo "$MARKERS_MATCHED" | awk -F. '{print $8}' | awk -F= '{print $1}')
 				do
 					CheckOneConsumable $MARKER_ID
 					CURRENT_STATUS=$?
-					
+
 					if [ "$CURRENT_STATUS" -gt "$CONSUMS_STATE" ]; then
 						CONSUMS_STATE="$CURRENT_STATUS"
 					fi
@@ -676,7 +676,7 @@ function CheckConsumables(){
 			fi
 		;;
 	esac
-	
+
 	return $CONSUMS_STATE
 
 }
@@ -698,10 +698,10 @@ function CheckOneTray (){
 	TRAY_FEED_DIMENSION=0
 	TRAY_XFEED_DIMENSION=0
 	TRAY_DIMENSION_UNITS=0
-	
+
 	TRAY_CAPACITY=`walk_snmp $OID_prtInputCurrentLevel.$1 true`
 	check_snmp_error "$?" "$TRAY_CAPACITY"
-	
+
 	if [ -z "$TRAY_CAPACITY" ]; then
 		STATE_STRING="$STATE_STRING UNKNOWN - Tray $1 not found. Use the TRAY TEST option to determine which trays may be monitored."
 		TRAY_STATE=$STATE_UNK
@@ -709,12 +709,12 @@ function CheckOneTray (){
 		# Determine information about the tray
 		TRAY_NAME=`walk_snmp $OID_prtInputName.$1 true`
 		check_snmp_error "$?" "$TRAY_NAME"
-		
+
 		# Some manufacturers do not set the tray name OID, so we'll assume a generic name depending on the # passed to the function
 		if [ "$TRAY_NAME"=="" ]; then
 			TRAY_NAME="Tray $1"
 		fi
-		
+
 		case "$TRAY_CAPACITY" in
 			"-3") # The value (-3) means that the printer knows that at least one unit remains.
 				STATE_STRING="$STATE_STRING$TRAY_NAME is OK!$SEPARATOR"
@@ -733,7 +733,7 @@ function CheckOneTray (){
 					# If either dimension was negative, then we really don't know much about the dimension
 					TRAY_DIMENSION_STRING="paper."
 				else
-			
+
 					case "$TRAY_DIMENSION_UNITS" in
 						"3") # convert ten thousandths of an inch to inches
 						TRAY_FEED_DIMENSION=$(echo "scale=1;$TRAY_FEED_DIMENSION/10000" | bc)
@@ -759,7 +759,7 @@ function CheckOneTray (){
 			*) # A positive number indicates how many pages are left. We'll calculate what % of capacity this is and determine status
 				TRAY_MAX_CAPACITY=`walk_snmp $OID_prtInputMaxCapacity.$1 true`
 				check_snmp_error "$?" "$TRAY_MAX_CAPACITY"
-				
+
 				let "TRAY_CAPACITY = $TRAY_CAPACITY * 100 / $TRAY_MAX_CAPACITY"
 				if [ "$TRAY_CAPACITY" -gt "$CRITICAL" ]; then
 					STATE_STRING="$STATE_STRING$TRAY_NAME is at $TRAY_CAPACITY%% - OK!$SEPARATOR"
@@ -768,13 +768,13 @@ function CheckOneTray (){
 						# Determine paper size of current tray
 						TRAY_FEED_DIMENSION=`walk_snmp $OID_prtInputMediaDimFeedDirDeclared.$1 true`
 						check_snmp_error "$?" "$TRAY_FEED_DIMENSION"
-						
+
 						TRAY_XFEED_DIMENSION=`walk_snmp $OID_prtInputMediaDimXFeedDirDeclared.$1 true`
 						check_snmp_error "$?" "$TRAY_XFEED_DIMENSION"
-						
+
 						TRAY_DIMENSION_UNITS=`walk_snmp $OID_prtInputDimUnit.$1 true`
 						check_snmp_error "$?" "$TRAY_DIMENSION_UNITS"
-						
+
 						if [ "$TRAY_FEED_DIMENSION" -lt 0 ] && [ "$TRAY_XFEED_DIMENSION" -lt 0 ]; then
 							# If either dimension was negative, then we really don't know much about the dimension
 							TRAY_DIMENSION_STRING="paper."
@@ -794,10 +794,10 @@ function CheckOneTray (){
 								TRAY_XFEED_DIMENSION=$(echo "scale=1;$TRAY_XFEED_DIMENSION/1" | bc)
 								;;
 							esac
-									
+
 							TRAY_DIMENSION_STRING="$TRAY_XFEED_DIMENSION x $TRAY_FEED_DIMENSION paper."
 						fi
-						
+
 						if [ "$TRAY_CAPACITY" -le "$CRITICAL" ]; then
 							# we have a critical: we already know the value is less than warning
 							STATE_STRING="$STATE_STRING$TRAY_NAME is at $TRAY_CAPACITY%% - CRITICAL! Please refill with more $TRAY_DIMENSION_STRING$SEPARATOR"
@@ -811,11 +811,11 @@ function CheckOneTray (){
 						fi
 					fi
 				fi
-				
+
 				PERFDATA="$PERFDATA '$TRAY_NAME'=$TRAY_CAPACITY;$WARNING;$CRITICAL"
 			;;
 		esac
-		
+
 	fi
 
 	return $TRAY_STATE
@@ -836,10 +836,10 @@ function CheckPaperTrays (){
 	TRAYS_STATE=$STATE_OK
 	ALL_TRAYS=`walk_snmp $OID_prtInputName true`
 	check_snmp_error "$?" "$ALL_TRAYS"
-	
+
 	ALL_TRAYS=$(echo "$ALL_TRAYS" | awk -F" " '{print $2}')
 	CURRENT_TRAY_STATUS=0
-	
+
 	case "$1" in
 		"test"|"TEST")
 			echo "Trays you may monitor:"
@@ -853,29 +853,29 @@ function CheckPaperTrays (){
 			do
 				CheckOneTray "$COUNT"
 				CURRENT_TRAY_STATUS=$?
-				
+
 				if [ "$CURRENT_TRAY_STATUS" -gt "$TRAYS_STATE" ]; then
 					TRAYS_STATE="$CURRENT_TRAY_STATUS"
 				fi
-				
-				COUNT=$[ $COUNT+1 ];				
+
+				COUNT=$[ $COUNT+1 ];
 			done
 		;;
-		*) 
+		*)
 			for TRAY_ID in $(echo "$1" | tr "$ARG_TOKEN" "\n")
 			do
 				CheckOneTray "$TRAY_ID"
 				CURRENT_TRAY_STATUS=$?
-				
+
 				if [ "$CURRENT_TRAY_STATUS" -gt "$TRAYS_STATE" ]; then
 					TRAYS_STATE="$CURRENT_TRAY_STATUS"
 				fi
 			done
 		;;
 	esac
-	
+
 	return $TRAYS_STATE
-	
+
 }
 
 #########################################################
@@ -886,9 +886,9 @@ walk_snmp(){
 	if [ $2 = true ]; then
 		OUTPUT_OPTIONS="-Oavq"
 	else
-		OUTPUT_OPTIONS="-Oa"		 
+		OUTPUT_OPTIONS="-Oa"
 	fi
-		
+
 	if [[ $SNMPVERSION = 3 ]]; then
 		RESULT_TEXT=`snmpwalk -v $SNMPVERSION $OUTPUT_OPTIONS -u $SNMPUSER -l $PRIVILEGELEVEL -x $PRIVACYPROTOCOL -X $PRIVACYPASSWORD -a $AUTHPROTOCOL -A $AUTHPASSWORD $HOST_NAME $1`
 		RESULT_CODE=$?
@@ -907,9 +907,9 @@ walk_snmp(){
 	if [ $2 = true ]; then
 		echo "$RESULT_TEXT" | sed -e 's/^[[:space:]]*//' | tr -d "\""
 	else
-		echo "$RESULT_TEXT" 
+		echo "$RESULT_TEXT"
 	fi
-	
+
 }
 
 #########################################################
@@ -923,7 +923,7 @@ check_snmp_error(){
 		echo $2
 		exit $STATE_UNK
 	fi
-	
+
 }
 
 #########################################################
@@ -934,7 +934,7 @@ check_snmp_error(){
 # 	EXIT with an UNKNOWN status if not
 binaries="snmpwalk cut tr awk sed bc egrep wc"
 
-for required_binary in $binaries; 
+for required_binary in $binaries;
 do
 	which $required_binary > /dev/null
 	if [ "$?" != '0' ];then
@@ -972,23 +972,23 @@ while test -n "$1"; do
 		--privelegelevel|-l)
 			PRIVILEGELEVEL=$2
 			shift
-			;;			
+			;;
 		--authprotocol|-a)
 			AUTHPROTOCOL=$2
 			shift
-			;;			
+			;;
 		--authpassword|-A)
 			AUTHPASSWORD=$2
 			shift
-			;;			
+			;;
 		--privacyprotocol|-x)
 			PRIVACYPROTOCOL=$2
 			shift
-			;;			
+			;;
 		--privacypassword|-X)
 			PRIVACYPASSWORD=$2
 			shift
-			;;				
+			;;
 		--type|-t) # Assign check to perform
 			CHECK_TYPE=$(echo "$2" | cut -d " " -f1)
 			PARAMETER=$(echo "$2" | cut -d " " -f2-)
@@ -1012,56 +1012,56 @@ while test -n "$1"; do
 		--version|-V)
 			print_version
 			exit $STATE
-			;;			
+			;;
 		  *)
 			echo "Unknown argument: $1"
 			print_usage
 			exit $STATE_UNK
 			;;
-			
+
 	esac
-	
+
 	shift
-	
+
 done
 
 # Make sure all necessary arguments were given; EXIT with an UNKNOWN status if not
 if [ ! -z $CHECK_TYPE ]; then
 	# Determine the check to perform
 	case "$CHECK_TYPE" in
-		"model"|"MODEL") 
+		"model"|"MODEL")
 			CheckModel
 			STATE=$?
 			;;
-		"messages"|"MESSAGES") 
+		"messages"|"MESSAGES")
 			CheckMessages
 			STATE=$?
 			;;
-		"pages"|"PAGES"|"count"|"COUNT"|"pagecount"|"PAGECOUNT") 
+		"pages"|"PAGES"|"count"|"COUNT"|"pagecount"|"PAGECOUNT")
 			CheckPageCount
 			STATE=$?
 			;;
-		"display"|"DISPLAY") 
+		"display"|"DISPLAY")
 			CheckDisplay
 			STATE=$?
 			;;
-		"status"|"STATUS") 
+		"status"|"STATUS")
 			CheckPrinterStatus
 			STATE=$?
 			;;
-		"devices"|"DEVICES") 
+		"devices"|"DEVICES")
 			CheckDeviceStatus
 			STATE=$?
 			;;
-		"consum"|"CONSUM") 
+		"consum"|"CONSUM")
 			CheckConsumables "$PARAMETER"
 			STATE=$?
 			;;
-		"consumx"|"CONSUMX") 
+		"consumx"|"CONSUMX")
 			CheckExactConsumable "$PARAMETER"
 			STATE=$?
 			;;
-		"tray"|"TRAY"|"trays"|"TRAYS") 
+		"tray"|"TRAY"|"trays"|"TRAYS")
 			CheckPaperTrays "$PARAMETER"
 			STATE=$?
 			;;
@@ -1069,8 +1069,8 @@ if [ ! -z $CHECK_TYPE ]; then
 			STATE_STRING="UNKNOWN: No valid check type specified to -t parameter"
 			STATE=$STATE_UNK
 			;;
-	esac	
-	
+	esac
+
 else
 	echo "Command incomplete!"
 	STATE=$STATE_UNK
