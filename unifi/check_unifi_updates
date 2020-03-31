@@ -146,15 +146,15 @@ def fetch_latest_version(unifi_model):
 
 def generate_output(installed_version, normalized_current_version):
     """Prepare message string and exit code"""
-    if installed_version != normalized_current_version:
+    if installed_version == normalized_current_version:
+        state = "OK"
+        message = f"UNIFI VERSION {state} - Firmware {installed_version} is current"
+    else:
         state = "WARNING"
         message = (
             f"UNIFI VERSION {state} - firmware version {installed_version} "
             f"differs from lates available {normalized_current_version}"
         )
-    else:
-        state = "OK"
-        message = f"UNIFI VERSION {state} - Firmware {installed_version} is current"
 
     return state, message
 
