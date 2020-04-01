@@ -153,7 +153,7 @@ def generate_output(installed_version, normalized_current_version):
         state = "WARNING"
         message = (
             f"UNIFI VERSION {state} - firmware version {installed_version} "
-            f"differs from lates available {normalized_current_version}"
+            f"differs from the latest available {normalized_current_version}"
         )
 
     return state, message
