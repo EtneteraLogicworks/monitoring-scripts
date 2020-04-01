@@ -1,0 +1,216 @@
+#!/usr/bin/env python3
+"""check_unifi_updates
+
+Script checks if HP switch device firmware is up to date.
+Currently tested only with 1920S switches.
+Installed firmware version is retrieved via SNMPv3 using pysnmp library.
+Latest available firmware version is retrieved via HP JavaScript datafile (See HPE_DATAFILE)
+"""
+
+import argparse
+import re
+import sys
+
+import demjson
+import requests
+from pysnmp.hlapi import (
+    ContextData,
+    ObjectIdentity,
+    ObjectType,
+    SnmpEngine,
+    UdpTransportTarget,
+    UsmUserData,
+    getCmd,
+    usmAesCfb128Protocol,
+    usmDESPrivProtocol,
+    usmHMACSHAAuthProtocol,
+)
+
+AUTH_PROTOCOL = usmHMACSHAAuthProtocol
+DEFAULT_PRIV_PROTOCOL = "DES"
+SNMP_PORT = 161
+
+HPE_DATAFILE = "https://techlibrary.hpe.com/OfficeConnect/scripts/datafile.js"
+JS_FIXES = [
+    (
+        'DocLinkBaseURL_1 + "',
+        '"http://h20564.www2.hpe.com/portal/site/hpsc/public/kb/docDisplay/?docId=',
+    ),
+    (
+        'DocLinkBaseURL_2 + "',
+        '"http://h20564.www2.hpe.com/hpsc/doc/public/display?docId=',
+    ),
+    (
+        'SoftwareBaseURL + "',
+        '"https://h10145.www1.hpe.com/downloads/DownloadSoftware.aspx?SoftwareReleaseUId=',
+    ),
+]
+
+
+def unknown_exit(message):
+    """Exit in unknown state when SNMP query fails"""
+    print(f"HP VERSION UNKNOWN - {message}")
+    sys.exit(3)
+
+
+def add_data_to_set(dataset, varBinds):
+    """Parse single SNMP response"""
+    for varBind in varBinds:
+        var, value = [x.prettyPrint() for x in varBind]
+        column_name = re.search("(hpHttpMgVersion.*)[.]", var).group(1)
+        dataset[column_name] = value
+    if not dataset.get("hpHttpMgVersion"):
+        unknown_exit(f"Unable to get device version via SNMP")
+
+
+def get_snmp_data(config):
+    """Retrieve necessary data via SNMP"""
+    authdata = UsmUserData(
+        config["user"],
+        authKey=config["authpassword"],
+        privKey=config["privpassword"],
+        authProtocol=AUTH_PROTOCOL,
+        privProtocol=config["privprotocol"],
+    )
+    target = UdpTransportTarget((config["host"], config["port"]))
+    hpe_version = ObjectType(
+        ObjectIdentity("HP-httpManageable-MIB", "hpHttpMgVersion", 0)
+    )
+
+    dataset = {}
+    errorIndication, errorStatus, errorIndex, varBinds = next(
+        getCmd(SnmpEngine(), authdata, target, ContextData(), hpe_version,)
+    )
+    if errorIndication:
+        unknown_exit(errorIndication)
+    elif errorStatus:
+        status = errorStatus.prettyPrint()
+        index = errorIndex and varBinds[int(errorIndex) - 1][0] or "?"
+        unknown_exit(f"{status} at {index}")
+    else:
+        add_data_to_set(dataset, varBinds)
+    return dataset
+
+
+def fetch_latest_versions():
+    """Obtain latest available firmware versions from the HP datafile"""
+    try:
+        jsfile = requests.get(HPE_DATAFILE)
+    except (requests.exceptions.RequestException, ValueError) as e:
+        unknown_exit(e)
+    js = re.findall(
+        r"var SeriesList.*?=\r\n(.*?);", jsfile.text, re.DOTALL | re.MULTILINE
+    )[0]
+    for source, target in JS_FIXES:
+        js = js.replace(source, target)
+
+    try:
+        json_datafile = demjson.decode(js)
+    except demjson.JSONDecodeError as e:
+        unknown_exit(f"Unable to get list of updates {e}")
+
+    return json_datafile
+
+
+def get_device_item(list_of_devices, shortcode):
+    """Get specific device from list of Unifi devices"""
+    device_item = next(
+        (device for device in list_of_devices if device["ShortCode"] == shortcode),
+        None,
+    )
+    if device_item is None:
+        unknown_exit(f"Unable to find updates for device series {shortcode}")
+    return device_item
+
+
+def generate_output(installed_version, latest_version, release_date):
+    """Prepare message string and exit code"""
+    if installed_version == latest_version:
+        state = "OK"
+        message = f"HP VERSION {state} - Firmware {installed_version} is current"
+    else:
+        state = "WARNING"
+        message = (
+            f"HP VERSION {state} - firmware version {installed_version} "
+            f"differs from the latest available {latest_version} from {release_date}"
+        )
+
+    return state, message
+
+
+def report(state, message):
+    """Print message string and exit"""
+    print(message)
+    if state == "OK":
+        sys.exit(0)
+    elif state == "WARNING":
+        sys.exit(1)
+    elif state == "CRITICAL":
+        sys.exit(2)
+    elif state == "UNKNOWN":
+        sys.exit(3)
+
+
+def main():
+    """Parse args and check if UniFi has latest firmware installed"""
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "-H", "--host", required=True, help="Name or IPv4 address of host to check"
+    )
+    parser.add_argument(
+        "-P", "--port", default=SNMP_PORT, help=f"SNMP port (Default {SNMP_PORT})"
+    )
+    parser.add_argument(
+        "-u", "--user", required=True, help="User for snmpv3 authentication "
+    )
+    parser.add_argument(
+        "-a",
+        "--authpassword",
+        required=True,
+        help="Password for snmpv3 authentication ",
+    )
+    parser.add_argument(
+        "-X", "--privpassword", required=True, help="Password for snmpv3 privacy ",
+    )
+    parser.add_argument(
+        "-x",
+        "--privprotocol",
+        default=DEFAULT_PRIV_PROTOCOL,
+        help="Privacy protocol for snmpv3",
+    )
+    parser.add_argument("-t", "--type", required=True, help="Device type")
+
+    config = vars(parser.parse_args())
+    if config["privprotocol"] == "AES":
+        config["privprotocol"] = usmAesCfb128Protocol
+    elif config["privprotocol"] == "DES":
+        config["privprotocol"] = usmDESPrivProtocol
+    else:
+        unknown_exit(f"Unknown privprotocol {config['privprotocol']}")
+
+    # Get installed version via SNMP
+    dataset = get_snmp_data(config)
+    installed_version = dataset["hpHttpMgVersion"]
+
+    # Get latest version from web
+    list_of_devices = fetch_latest_versions()
+    device = get_device_item(list_of_devices, config["type"])
+    updates = device["software"]["set_1"]["softwareSet"]
+
+    latest_version = None
+    for update in updates:
+        if "Latest build" in update["name"]:
+            latest_version = re.search("(.*) - Latest build", update["name"]).group(1)
+            release_date = update["date"]
+
+    if not latest_version:
+        unknown_exit("Unable to find latest update")
+
+    state, message = generate_output(installed_version, latest_version, release_date)
+    report(state, message)
+
+
+if __name__ == "__main__":
+    main()
