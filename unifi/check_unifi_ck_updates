@@ -110,11 +110,11 @@ def compare_versions(product, installed, latest, output_data):
     if installed != latest:
         output_data["state"] = "WARNING"
         output_data["message_warning"] += (
-            f" {product} firmware version {installed} "
+            f" {product} version {installed} "
             f"differs from the latest available {latest}."
         )
     else:
-        output_data["message_ok"] += f" {product} firmware {installed} is current"
+        output_data["message_ok"] += f" {product} {installed} is current"
 
 
 def generate_output(cloudkey_info):
@@ -125,7 +125,7 @@ def generate_output(cloudkey_info):
         "message_ok": "",
     }
     compare_versions(
-        "Cloud Key",
+        "Cloud Key firmware",
         cloudkey_info["version_installed"],
         cloudkey_info["latest_version"],
         output_data,
