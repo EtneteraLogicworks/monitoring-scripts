@@ -61,7 +61,7 @@ def generate_output(interfaces, total_clients, config):
         state = "WARNING"
     else:
         state = "OK"
-    message = f"WIFI CLIENTS {state} - {total_clients} currently connected"
+    message = f"{SERVICE} {state} - {total_clients} currently connected"
     message = add_performace_data(message, interfaces, total_clients, config)
     return state, message
 

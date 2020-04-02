@@ -91,12 +91,12 @@ def generate_output(dataset):
     if dataset["installed_version"] == dataset["latest_version"]:
         state = "OK"
         message = (
-            f"HP VERSION {state} - Firmware {dataset['installed_version']} is current"
+            f"{SERVICE} {state} - Firmware {dataset['installed_version']} is current"
         )
     else:
         state = "WARNING"
         message = (
-            f"HP VERSION {state} - firmware version {dataset['installed_version']} "
+            f"{SERVICE} {state} - firmware version {dataset['installed_version']} "
             f"differs from the latest available {dataset['latest_version']}"
         )
         if "release_date" in dataset:

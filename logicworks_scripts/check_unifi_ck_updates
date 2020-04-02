@@ -138,7 +138,7 @@ def generate_output(cloudkey_info):
         )
 
     message = (
-        "UNIFI VERSION"
+        SERVICE
         + f" {output_data['state']} -"
         + output_data["message_warning"]
         + output_data["message_ok"]

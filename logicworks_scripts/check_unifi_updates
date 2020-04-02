@@ -89,11 +89,11 @@ def generate_output(installed_version, normalized_current_version):
     """Prepare message string and exit code"""
     if installed_version == normalized_current_version:
         state = "OK"
-        message = f"UNIFI VERSION {state} - Firmware {installed_version} is current"
+        message = f"{SERVICE} {state} - Firmware {installed_version} is current"
     else:
         state = "WARNING"
         message = (
-            f"UNIFI VERSION {state} - firmware version {installed_version} "
+            f"{SERVICE} {state} - firmware version {installed_version} "
             f"differs from the latest available {normalized_current_version}"
         )
 
