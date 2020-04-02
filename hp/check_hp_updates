@@ -235,8 +235,6 @@ def get_system_information(config, dataset):
         else:
             unknown_exit("Unable to get installed firmware version")
 
-    print(dataset["sysDescr"])
-
 
 def main():
     """Parse args and check if UniFi has latest firmware installed"""
