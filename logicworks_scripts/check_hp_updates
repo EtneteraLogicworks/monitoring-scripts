@@ -9,33 +9,21 @@ Latest available firmware version is retrieved via HP JavaScript datafile (See H
 
 import argparse
 import re
-import sys
 
 import demjson
 import requests
-from pysnmp.hlapi import (
-    ContextData,
-    ObjectIdentity,
-    ObjectType,
-    SnmpEngine,
-    UdpTransportTarget,
-    UsmUserData,
-    getCmd,
-    usmAesCfb128Protocol,
-    usmDESPrivProtocol,
-    usmHMACMD5AuthProtocol,
-    usmHMACSHAAuthProtocol,
-)
+from pysnmp.hlapi import ObjectIdentity, ObjectType
 from urllib3.exceptions import InsecureRequestWarning
+
+from logicworks_monitoring_lib import (add_common_snmp_args,
+                                       add_response_to_dataset, get_snmp_data,
+                                       report, unknown_exit)
 
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
-
+SERVICE = "HP UPDATE"
 SUPPORTED_SWITCH_FAMILY = ["1920-24G", "1920S"]
 
-DEFAULT_PRIV_PROTOCOL = "DES"
-DEFAULT_AUTH_PROTOCOL = "SHA"
-SNMP_PORT = 161
 
 DOWNLOAD_WEBPAGE = "https://h10145.www1.hpe.com/downloads/SoftwareReleases.aspx"
 DOWNLOAD_PAGE_ELEMENT = "ctl00_ContentPlaceHolderProCurve_ReleasesGridUC1_gvReleasesGrid_ctl02_lblReleaseVersion"
@@ -56,51 +44,12 @@ JS_FIXES = [
 ]
 
 
-def unknown_exit(message):
-    """Exit in unknown state when SNMP query fails"""
-    print(f"HP VERSION UNKNOWN - {message}")
-    sys.exit(3)
-
-
-def add_data_to_set(dataset, varBinds, item_description):
-    """Parse single SNMP response"""
-    for varBind in varBinds:
-        var, value = [x.prettyPrint() for x in varBind]
-        match_key = re.search(f"({item_description}.*)[.]", var)
-        if match_key:
-            dataset[match_key.group(1)] = value
-
-
-def get_snmp_data(config, data):
-    """Retrieve necessary data via SNMP"""
-    authdata = UsmUserData(
-        config["user"],
-        authKey=config["authpassword"],
-        privKey=config["privpassword"],
-        authProtocol=config["authprotocol"],
-        privProtocol=config["privprotocol"],
-    )
-    target = UdpTransportTarget((config["host"], config["port"]))
-
-    errorIndication, errorStatus, errorIndex, varBinds = next(
-        getCmd(SnmpEngine(), authdata, target, ContextData(), data)
-    )
-    if errorIndication:
-        unknown_exit(errorIndication)
-    elif errorStatus:
-        status = errorStatus.prettyPrint()
-        index = errorIndex and varBinds[int(errorIndex) - 1][0] or "?"
-        unknown_exit(f"{status} at {index}")
-
-    return varBinds
-
-
 def fetch_latest_versions():
     """Obtain latest available firmware versions from the HP datafile"""
     try:
         jsfile = requests.get(HPE_DATAFILE)
-    except (requests.exceptions.RequestException, ValueError) as e:
-        unknown_exit(e)
+    except (requests.exceptions.RequestException, ValueError) as err:
+        unknown_exit(SERVICE, err)
     js = re.findall(
         r"var SeriesList.*?=\r\n(.*?);", jsfile.text, re.DOTALL | re.MULTILINE
     )[0]
@@ -110,7 +59,7 @@ def fetch_latest_versions():
     try:
         json_datafile = demjson.decode(js)
     except demjson.JSONDecodeError as e:
-        unknown_exit(f"Unable to get list of updates {e}")
+        unknown_exit(SERVICE, f"Unable to get list of updates {e}")
 
     return json_datafile
 
@@ -127,7 +76,8 @@ def get_device_item(list_of_devices, dataset):
     )
     if device_item is None:
         unknown_exit(
-            f"Unable to find updates for device {dataset['type']} {dataset['model_number']}"
+            SERVICE,
+            f"Unable to find updates for device {dataset['type']} {dataset['model_number']}",
         )
     return device_item
 
@@ -151,19 +101,6 @@ def generate_output(dataset):
     return state, message
 
 
-def report(state, message):
-    """Print message string and exit"""
-    print(message)
-    if state == "OK":
-        sys.exit(0)
-    elif state == "WARNING":
-        sys.exit(1)
-    elif state == "CRITICAL":
-        sys.exit(2)
-    elif state == "UNKNOWN":
-        sys.exit(3)
-
-
 def find_version_from_jsdatafile(dataset):
     """Get latest firmware version from Javascript datafile"""
     list_of_devices = fetch_latest_versions()
@@ -179,7 +116,8 @@ def find_version_from_jsdatafile(dataset):
 
     if "latest_version" not in dataset:
         unknown_exit(
-            f"Unable to find updates for device {dataset['type']} {dataset['model_number']}"
+            SERVICE,
+            f"Unable to find updates for device {dataset['type']} {dataset['model_number']}",
         )
 
 
@@ -189,43 +127,50 @@ def find_version_from_web(dataset):
     try:
         webpage = requests.get(webpage_url, verify=False)
     except (requests.exceptions.RequestException, ValueError) as e:
-        unknown_exit(e)
+        unknown_exit(SERVICE, e)
     version_match = re.search(f"{DOWNLOAD_PAGE_ELEMENT}.*?>(.*)</span", webpage.text)
     if version_match:
         dataset["latest_version"] = version_match.group(1)
     else:
         unknown_exit(
-            f"Unable to find updates for device {dataset['type']} {dataset['model_number']}"
+            SERVICE,
+            f"Unable to find updates for device {dataset['type']} {dataset['model_number']}",
         )
 
 
 def get_system_information(config, dataset):
     """Get system description via SNMP and parse it"""
     system_decription = ObjectType(ObjectIdentity("SNMPv2-MIB", "sysDescr", 0))
-    raw_data = get_snmp_data(config, system_decription)
-    add_data_to_set(dataset, raw_data, "sysDescr")
+    try:
+        raw_data = get_snmp_data(config, system_decription)
+    except ValueError as err:
+        unknown_exit(SERVICE, err)
+    add_response_to_dataset(dataset, raw_data, "sysDescr")
 
     # Find device type
     for family in SUPPORTED_SWITCH_FAMILY:
-        type_match = re.search(f"[ ]({family})[ ]", dataset["sysDescr"])
+        type_match = re.search(f"({family})[ ]", dataset["sysDescr"])
         if type_match:
             dataset["type"] = type_match.group(1)
+            break
 
     if "type" not in dataset:
-        unknown_exit(f"Unsupported Hardware: {dataset['sysDescr']}")
+        unknown_exit(SERVICE, f"Unsupported Hardware: {dataset['sysDescr']}")
 
     # Find information based on type
     if dataset["type"] == "1920-24G":
+        dataset["model_number"] = "JG924A"
         description_match = re.search(
-            f"Version ([0-9]+[.][0-9]+), Release ([0-9])+", dataset["sysDescr"]
+            f"Version ([0-9]+[.][0-9]+)[.][0-9]+, Release ([0-9]+)", dataset["sysDescr"]
         )
         if description_match:
-            dataset["model_number"] = "JG924A"
             dataset["version"] = description_match.group(1)
             dataset["release"] = description_match.group(2)
             dataset[
                 "installed_version"
             ] = f"1920-24G-JG924A_{dataset['version']}.R{dataset['release']}"
+        else:
+            unknown_exit(SERVICE, "Unable to get installed firmware version")
 
     elif dataset["type"] == "1920S":
         description_match = re.search(f"[^,]* ([^,]*), ([^,]*),", dataset["sysDescr"])
@@ -233,7 +178,7 @@ def get_system_information(config, dataset):
             dataset["model_number"] = description_match.group(1)
             dataset["installed_version"] = description_match.group(2)
         else:
-            unknown_exit("Unable to get installed firmware version")
+            unknown_exit(SERVICE, "Unable to get installed firmware version")
 
 
 def main():
@@ -241,50 +186,12 @@ def main():
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument(
-        "-H", "--host", required=True, help="Name or IPv4 address of host to check"
-    )
-    parser.add_argument(
-        "-P", "--port", default=SNMP_PORT, help=f"SNMP port (Default {SNMP_PORT})"
-    )
-    parser.add_argument(
-        "-u", "--user", required=True, help="User for snmpv3 authentication "
-    )
-    parser.add_argument(
-        "-a",
-        "--authprotocol",
-        default=DEFAULT_AUTH_PROTOCOL,
-        help="Auth protocol for snmpv3",
-    )
-    parser.add_argument(
-        "-A", "--authpassword", help="Password for snmpv3 authentication ",
-    )
-    parser.add_argument(
-        "-X", "--privpassword", required=True, help="Password for snmpv3 privacy ",
-    )
-    parser.add_argument(
-        "-x",
-        "--privprotocol",
-        default=DEFAULT_PRIV_PROTOCOL,
-        help="Privacy protocol for snmpv3",
-    )
+    add_common_snmp_args(parser)
 
     config = vars(parser.parse_args())
-    if config["privprotocol"] == "AES":
-        config["privprotocol"] = usmAesCfb128Protocol
-    elif config["privprotocol"] == "DES":
-        config["privprotocol"] = usmDESPrivProtocol
-    else:
-        unknown_exit(f"Unknown privprotocol {config['privprotocol']}")
-
-    if config["authprotocol"] == "SHA":
-        config["authprotocol"] = usmHMACSHAAuthProtocol
-    elif config["authprotocol"] == "MD5":
-        config["authprotocol"] = usmHMACMD5AuthProtocol
-    else:
-        unknown_exit(f"Unknown authprotocol {config['authprotocol']}")
 
     dataset = {}
+
     get_system_information(config, dataset)
 
     # Get version via SNMP
@@ -301,18 +208,19 @@ def main():
     #     )
     #
     #     raw_data = get_snmp_data(config, version_obect)
-    #     add_data_to_set(dataset, raw_data, version_key)
+    #     add_response_to_dataset(dataset, raw_data, version_key)
     #     dataset["installed_version"] = dataset[version_key]
 
     # Get latest version from web
     if dataset["type"] == "1920S":
-        # find_version_from_jsdatafile(dataset)
-        find_version_from_web(dataset)
-    elif dataset["type"] == "1920":
+        find_version_from_jsdatafile(dataset)
+        # Fallback query
+        # find_version_from_web(dataset)
+    elif dataset["type"] == "1920-24G":
         find_version_from_web(dataset)
 
-    if not dataset["latest_version"]:
-        unknown_exit("Unable to find latest update")
+    if "latest_version" not in dataset:
+        unknown_exit(SERVICE, "Unable to find latest update")
 
     state, message = generate_output(dataset)
     report(state, message)
