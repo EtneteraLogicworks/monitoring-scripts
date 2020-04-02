@@ -3,7 +3,6 @@
 Library with common code for other Logicworks monitoring scripts
 """
 
-import argparse
 import re
 import sys
 

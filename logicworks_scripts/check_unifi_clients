@@ -14,10 +14,13 @@ import re
 
 from pysnmp.hlapi import ObjectIdentity, ObjectType
 
-from logicworks_monitoring_lib import (add_common_snmp_args,
-                                       add_table_to_dataset,
-                                       get_snmp_table_data, report,
-                                       unknown_exit)
+from logicworks_monitoring_lib import (
+    add_common_snmp_args,
+    add_table_to_dataset,
+    get_snmp_table_data,
+    report,
+    unknown_exit,
+)
 
 SERVICE = "WIFI CLIENTS"
 INTEFACE_FILTER = "(ath)[0-9]+"
