@@ -8,22 +8,18 @@ Latest available firmware version is retrieved via ubnt.com API (See UNIFI_RELEA
 
 import argparse
 import re
-import sys
 
 import requests
 
+from logicworks_monitoring_lib import report, unknown_exit
+
+SERVICE = "UNIFI UPDATE"
 UNIFI_RELEASES_URL = "https://fw-update.ubnt.com/api/firmware-latest"
 UNIFI_IDENTIFIERS = {
     "UC-CK": "UCK",
     "UCK-G2": "UCKG2",
     "UCK-G2-PLUS": "UCKP",
 }
-
-
-def unknown_exit(message):
-    """Exit in unknown state when SNMP query fails"""
-    print(f"UNIFI VERSION UNKNOWN - {message}")
-    sys.exit(3)
 
 
 def normalize_version(raw_version):
@@ -53,10 +49,10 @@ def fetch_cloudkey_info(config):
     """Download version info from Cloud Key info.php"""
     cloudkey_info_url = f"http://{config['host']}/info.php"
     try:
-        r = requests.get(cloudkey_info_url)
-        raw_cloudkey_info = r.json()
-    except (requests.exceptions.RequestException, ValueError) as e:
-        unknown_exit(e)
+        web_req = requests.get(cloudkey_info_url)
+        raw_cloudkey_info = web_req.json()
+    except (requests.exceptions.RequestException, ValueError) as err:
+        unknown_exit(SERVICE, err)
     cloudkey_info = parse_cloudkey_info(raw_cloudkey_info)
     return cloudkey_info
 
@@ -64,10 +60,10 @@ def fetch_cloudkey_info(config):
 def fetch_latest_versions():
     """Obtain latest available firmware versions from the UBNT API"""
     try:
-        r = requests.get(UNIFI_RELEASES_URL)
-        list_of_devices = r.json()["_embedded"]["firmware"]
-    except (requests.exceptions.RequestException, ValueError) as e:
-        unknown_exit(e)
+        api_req = requests.get(UNIFI_RELEASES_URL)
+        list_of_devices = api_req.json()["_embedded"]["firmware"]
+    except (requests.exceptions.RequestException, ValueError) as err:
+        unknown_exit(SERVICE, err)
     return list_of_devices
 
 
@@ -85,7 +81,7 @@ def get_device_item(list_of_devices, platform, product="unifi-firmware"):
     )
     if device_item is None:
         unknown_exit(
-            f"Unable to find updates for platform {platform} product {product}"
+            SERVICE, f"Unable to find updates for platform {platform} product {product}"
         )
     return device_item
 
@@ -148,19 +144,6 @@ def generate_output(cloudkey_info):
         + output_data["message_ok"]
     )
     return output_data["state"], message
-
-
-def report(state, message):
-    """Print message string and exit"""
-    print(message)
-    if state == "OK":
-        sys.exit(0)
-    elif state == "WARNING":
-        sys.exit(1)
-    elif state == "CRITICAL":
-        sys.exit(2)
-    elif state == "UNKNOWN":
-        sys.exit(3)
 
 
 def main():

@@ -15,9 +15,13 @@ import requests
 from pysnmp.hlapi import ObjectIdentity, ObjectType
 from urllib3.exceptions import InsecureRequestWarning
 
-from logicworks_monitoring_lib import (add_common_snmp_args,
-                                       add_response_to_dataset, get_snmp_data,
-                                       report, unknown_exit)
+from logicworks_monitoring_lib import (
+    add_common_snmp_args,
+    add_vars_to_dataset,
+    get_snmp_data,
+    report,
+    unknown_exit,
+)
 
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
@@ -50,16 +54,16 @@ def fetch_latest_versions():
         jsfile = requests.get(HPE_DATAFILE)
     except (requests.exceptions.RequestException, ValueError) as err:
         unknown_exit(SERVICE, err)
-    js = re.findall(
+    js_selected = re.findall(
         r"var SeriesList.*?=\r\n(.*?);", jsfile.text, re.DOTALL | re.MULTILINE
     )[0]
     for source, target in JS_FIXES:
-        js = js.replace(source, target)
+        js_selected = js_selected.replace(source, target)
 
     try:
-        json_datafile = demjson.decode(js)
-    except demjson.JSONDecodeError as e:
-        unknown_exit(SERVICE, f"Unable to get list of updates {e}")
+        json_datafile = demjson.decode(js_selected)
+    except demjson.JSONDecodeError as err:
+        unknown_exit(SERVICE, f"Unable to get list of updates {err}")
 
     return json_datafile
 
@@ -126,8 +130,8 @@ def find_version_from_web(dataset):
     webpage_url = f"{DOWNLOAD_WEBPAGE}?ProductNumber={dataset['model_number']}"
     try:
         webpage = requests.get(webpage_url, verify=False)
-    except (requests.exceptions.RequestException, ValueError) as e:
-        unknown_exit(SERVICE, e)
+    except (requests.exceptions.RequestException, ValueError) as err:
+        unknown_exit(SERVICE, err)
     version_match = re.search(f"{DOWNLOAD_PAGE_ELEMENT}.*?>(.*)</span", webpage.text)
     if version_match:
         dataset["latest_version"] = version_match.group(1)
@@ -145,7 +149,7 @@ def get_system_information(config, dataset):
         raw_data = get_snmp_data(config, system_decription)
     except ValueError as err:
         unknown_exit(SERVICE, err)
-    add_response_to_dataset(dataset, raw_data, "sysDescr")
+    add_vars_to_dataset(dataset, raw_data, "sysDescr")
 
     # Find device type
     for family in SUPPORTED_SWITCH_FAMILY:
@@ -208,7 +212,7 @@ def main():
     #     )
     #
     #     raw_data = get_snmp_data(config, version_obect)
-    #     add_response_to_dataset(dataset, raw_data, version_key)
+    #     add_vars_to_dataset(dataset, raw_data, version_key)
     #     dataset["installed_version"] = dataset[version_key]
 
     # Get latest version from web

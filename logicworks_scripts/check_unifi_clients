@@ -9,87 +9,24 @@ SSID/(2.4GHz|5GHz) combination. --warning and --critical thresholds apply only t
 number of clients connected.
 """
 
-from argparse import ArgumentParser, RawDescriptionHelpFormatter
-from re import match, search
-from sys import exit as sysexit
+import argparse
+import re
 
-from pysnmp.hlapi import (
-    ContextData,
-    ObjectIdentity,
-    ObjectType,
-    SnmpEngine,
-    UdpTransportTarget,
-    UsmUserData,
-    nextCmd,
-    usmAesCfb128Protocol,
-    usmHMACSHAAuthProtocol,
-)
+from pysnmp.hlapi import ObjectIdentity, ObjectType
 
-AUTH_PROTOCOL = usmHMACSHAAuthProtocol
-PRIV_PROTOCOL = usmAesCfb128Protocol
-SNMP_PORT = 161
+from logicworks_monitoring_lib import (add_common_snmp_args,
+                                       add_table_to_dataset,
+                                       get_snmp_table_data, report,
+                                       unknown_exit)
+
+SERVICE = "WIFI CLIENTS"
 INTEFACE_FILTER = "(ath)[0-9]+"
-
-
-def unknown_exit(message):
-    """Exit in unknown state when SNMP query fails"""
-    print(f"WIFI CLIENTS UNKNOWN - {message}")
-    sysexit(3)
-
-
-def add_data_to_set(dataset, varBinds):
-    """Parse single SNMP response"""
-    dataset.append({})
-    for varBind in varBinds:
-        interface_id, val = [x.prettyPrint() for x in varBind]
-        column_name = search("(unifi.*)[.]", interface_id).group(1)
-        dataset[-1][column_name] = val
-
-
-def get_snmp_data(config):
-    """Retrieve necessary data via SNMP"""
-    snmp = SnmpEngine()
-    authdata = UsmUserData(
-        config["user"],
-        authKey=config["authpassword"],
-        privKey=config["privpassword"],
-        authProtocol=AUTH_PROTOCOL,
-        privProtocol=PRIV_PROTOCOL,
-    )
-    target = UdpTransportTarget((config["host"], config["port"]))
-    unifi_vap_name = ObjectType(ObjectIdentity("UBNT-UniFi-MIB", "unifiVapName"))
-    unifi_vap_stations = ObjectType(
-        ObjectIdentity("UBNT-UniFi-MIB", "unifiVapNumStations")
-    )
-    unifi_vap_ssid = ObjectType(ObjectIdentity("UBNT-UniFi-MIB", "unifiVapEssId"))
-    unifi_vap_channel = ObjectType(ObjectIdentity("UBNT-UniFi-MIB", "unifiVapChannel"))
-    dataset = []
-    for (errorIndication, errorStatus, errorIndex, varBinds) in nextCmd(
-        snmp,
-        authdata,
-        target,
-        ContextData(),
-        unifi_vap_name,
-        unifi_vap_stations,
-        unifi_vap_ssid,
-        unifi_vap_channel,
-        lexicographicMode=False,
-    ):
-        if errorIndication:
-            unknown_exit(errorIndication)
-        elif errorStatus:
-            status = errorStatus.prettyPrint()
-            index = errorIndex and varBinds[int(errorIndex) - 1][0] or "?"
-            unknown_exit(f"{status} at {index}")
-        else:
-            add_data_to_set(dataset, varBinds)
-    return dataset
 
 
 def process_data(dataset, config):
     """Parse retrived data"""
     interfaces = [
-        i for i in dataset if match(config["interface_filter"], i["unifiVapName"])
+        i for i in dataset if re.match(config["interface_filter"], i["unifiVapName"])
     ]
     total_clients = sum(int(i["unifiVapNumStations"]) for i in interfaces)
     return (interfaces, total_clients)
@@ -129,40 +66,14 @@ def generate_output(interfaces, total_clients, config):
     return state, message
 
 
-def report(state, message):
-    """Print message string and exit"""
-    print(message)
-    if state == "OK":
-        sysexit(0)
-    elif state == "WARNING":
-        sysexit(1)
-    elif state == "CRITICAL":
-        sysexit(2)
-    elif state == "UNKNOWN":
-        sysexit(3)
-
-
 def main():
     """Parse args and check number of UniFi Wi-Fi clients"""
-    parser = ArgumentParser(
-        description=__doc__, formatter_class=RawDescriptionHelpFormatter
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
-    parser.add_argument(
-        "-H", "--host", required=True, help="Name or IPv4 address of host to check"
-    )
-    parser.add_argument(
-        "-P", "--port", default=SNMP_PORT, help=f"SNMP port (Default {SNMP_PORT})"
-    )
-    parser.add_argument(
-        "-u", "--user", required=True, help="User for snmpv3 authentication "
-    )
-    parser.add_argument(
-        "-x", "--authpassword", required=True, help="Password for snmpv3 authentication "
-    )
-    parser.add_argument(
-        "-X", "--privpassword", required=True, help="Privacy password for snmpv3"
-    )
+    add_common_snmp_args(parser)
+
     parser.add_argument(
         "-i",
         "--interface-filter",
@@ -185,7 +96,29 @@ def main():
     )
 
     config = vars(parser.parse_args())
-    dataset = get_snmp_data(config)
+
+    dataset = []
+
+    unifi_vap_name = ObjectType(ObjectIdentity("UBNT-UniFi-MIB", "unifiVapName"))
+    unifi_vap_stations = ObjectType(
+        ObjectIdentity("UBNT-UniFi-MIB", "unifiVapNumStations")
+    )
+    unifi_vap_ssid = ObjectType(ObjectIdentity("UBNT-UniFi-MIB", "unifiVapEssId"))
+    unifi_vap_channel = ObjectType(ObjectIdentity("UBNT-UniFi-MIB", "unifiVapChannel"))
+
+    try:
+        raw_data = get_snmp_table_data(
+            config,
+            unifi_vap_name,
+            unifi_vap_stations,
+            unifi_vap_ssid,
+            unifi_vap_channel,
+        )
+    except ValueError as err:
+        unknown_exit(SERVICE, err)
+
+    add_table_to_dataset(dataset, raw_data, "unifi")
+
     interfaces, total_clients = process_data(dataset, config)
     state, message = generate_output(interfaces, total_clients, config)
     report(state, message)

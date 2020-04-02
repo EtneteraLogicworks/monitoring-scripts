@@ -7,13 +7,21 @@ import argparse
 import re
 import sys
 
-from pysnmp.hlapi import (ContextData, SnmpEngine, UdpTransportTarget,
-                          UsmUserData, getCmd, usmAesCfb128Protocol,
-                          usmDESPrivProtocol, usmHMACMD5AuthProtocol,
-                          usmHMACSHAAuthProtocol)
+from pysnmp.hlapi import (
+    ContextData,
+    SnmpEngine,
+    UdpTransportTarget,
+    UsmUserData,
+    getCmd,
+    nextCmd,
+    usmAesCfb128Protocol,
+    usmDESPrivProtocol,
+    usmHMACMD5AuthProtocol,
+    usmHMACSHAAuthProtocol,
+)
 
 SNMP_PORT = 161
-DEFAULT_PRIV_PROTOCOL = "DES"
+DEFAULT_PRIV_PROTOCOL = "AES"
 DEFAULT_AUTH_PROTOCOL = "SHA"
 
 
@@ -48,7 +56,7 @@ def add_common_snmp_args(parser):
     )
 
 
-def add_response_to_dataset(dataset, varBinds, item_description):
+def add_vars_to_dataset(dataset, varBinds, item_description):
     """Parse single SNMP response"""
     for varBind in varBinds:
         var, value = [x.prettyPrint() for x in varBind]
@@ -57,9 +65,18 @@ def add_response_to_dataset(dataset, varBinds, item_description):
             dataset[match_key.group(1)] = value
 
 
-def get_snmp_data(config, data):
-    """Retrieve necessary data via SNMP"""
+def add_table_to_dataset(dataset, raw_data, item_description):
+    """Parse single SNMP response"""
+    for item in raw_data:
+        dataset.append({})
+        for varBind in item:
+            interface_id, val = [x.prettyPrint() for x in varBind]
+            column_match = re.search(f"({item_description}.*)[.]", interface_id)
+            if column_match:
+                dataset[-1][column_match.group(1)] = val
 
+
+def set_snmp_security_protocols(config):
     if config["privprotocol"] == "AES":
         priv_protocol = usmAesCfb128Protocol
     elif config["privprotocol"] == "DES":
@@ -74,6 +91,14 @@ def get_snmp_data(config, data):
     else:
         raise ValueError(f"Unknown authprotocol {config['authprotocol']}")
 
+    return priv_protocol, auth_protocol
+
+
+def get_snmp_data(config, *args):
+    """Retrieve necessary data via SNMP"""
+
+    priv_protocol, auth_protocol = set_snmp_security_protocols(config)
+
     authdata = UsmUserData(
         config["user"],
         authKey=config["authpassword"],
@@ -84,7 +109,7 @@ def get_snmp_data(config, data):
     target = UdpTransportTarget((config["host"], config["port"]))
 
     errorIndication, errorStatus, errorIndex, varBinds = next(
-        getCmd(SnmpEngine(), authdata, target, ContextData(), data)
+        getCmd(SnmpEngine(), authdata, target, ContextData(), *args)
     )
     if errorIndication:
         raise ValueError(errorIndication)
@@ -94,6 +119,37 @@ def get_snmp_data(config, data):
         raise ValueError(f"{status} at {index}")
 
     return varBinds
+
+
+def get_snmp_table_data(config, *args):
+    """Retrieve necessary data via SNMP"""
+
+    priv_protocol, auth_protocol = set_snmp_security_protocols(config)
+    snmp = SnmpEngine()
+
+    authdata = UsmUserData(
+        config["user"],
+        authKey=config["authpassword"],
+        privKey=config["privpassword"],
+        authProtocol=auth_protocol,
+        privProtocol=priv_protocol,
+    )
+
+    target = UdpTransportTarget((config["host"], config["port"]))
+
+    snmp_data = []
+    for (errorIndication, errorStatus, errorIndex, varBinds) in nextCmd(
+        snmp, authdata, target, ContextData(), *args, lexicographicMode=False,
+    ):
+        if errorIndication:
+            raise ValueError(errorIndication)
+        elif errorStatus:
+            status = errorStatus.prettyPrint()
+            index = errorIndex and varBinds[int(errorIndex) - 1][0] or "?"
+            raise ValueError(f"{status} at {index}")
+        else:
+            snmp_data.append(varBinds)
+    return snmp_data
 
 
 def unknown_exit(service, message):
