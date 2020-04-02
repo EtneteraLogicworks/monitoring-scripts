@@ -23,13 +23,22 @@ from pysnmp.hlapi import (
     getCmd,
     usmAesCfb128Protocol,
     usmDESPrivProtocol,
+    usmHMACMD5AuthProtocol,
     usmHMACSHAAuthProtocol,
 )
+from urllib3.exceptions import InsecureRequestWarning
 
-AUTH_PROTOCOL = usmHMACSHAAuthProtocol
+requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+
+
+SUPPORTED_SWITCH_FAMILY = ["1920-24G", "1920S"]
+
 DEFAULT_PRIV_PROTOCOL = "DES"
+DEFAULT_AUTH_PROTOCOL = "SHA"
 SNMP_PORT = 161
 
+DOWNLOAD_WEBPAGE = "https://h10145.www1.hpe.com/downloads/SoftwareReleases.aspx"
+DOWNLOAD_PAGE_ELEMENT = "ctl00_ContentPlaceHolderProCurve_ReleasesGridUC1_gvReleasesGrid_ctl02_lblReleaseVersion"
 HPE_DATAFILE = "https://techlibrary.hpe.com/OfficeConnect/scripts/datafile.js"
 JS_FIXES = [
     (
@@ -53,33 +62,28 @@ def unknown_exit(message):
     sys.exit(3)
 
 
-def add_data_to_set(dataset, varBinds):
+def add_data_to_set(dataset, varBinds, item_description):
     """Parse single SNMP response"""
     for varBind in varBinds:
         var, value = [x.prettyPrint() for x in varBind]
-        column_name = re.search("(hpHttpMgVersion.*)[.]", var).group(1)
-        dataset[column_name] = value
-    if not dataset.get("hpHttpMgVersion"):
-        unknown_exit(f"Unable to get device version via SNMP")
+        match_key = re.search(f"({item_description}.*)[.]", var)
+        if match_key:
+            dataset[match_key.group(1)] = value
 
 
-def get_snmp_data(config):
+def get_snmp_data(config, data):
     """Retrieve necessary data via SNMP"""
     authdata = UsmUserData(
         config["user"],
         authKey=config["authpassword"],
         privKey=config["privpassword"],
-        authProtocol=AUTH_PROTOCOL,
+        authProtocol=config["authprotocol"],
         privProtocol=config["privprotocol"],
     )
     target = UdpTransportTarget((config["host"], config["port"]))
-    hpe_version = ObjectType(
-        ObjectIdentity("HP-httpManageable-MIB", "hpHttpMgVersion", 0)
-    )
 
-    dataset = {}
     errorIndication, errorStatus, errorIndex, varBinds = next(
-        getCmd(SnmpEngine(), authdata, target, ContextData(), hpe_version,)
+        getCmd(SnmpEngine(), authdata, target, ContextData(), data)
     )
     if errorIndication:
         unknown_exit(errorIndication)
@@ -87,9 +91,8 @@ def get_snmp_data(config):
         status = errorStatus.prettyPrint()
         index = errorIndex and varBinds[int(errorIndex) - 1][0] or "?"
         unknown_exit(f"{status} at {index}")
-    else:
-        add_data_to_set(dataset, varBinds)
-    return dataset
+
+    return varBinds
 
 
 def fetch_latest_versions():
@@ -112,28 +115,38 @@ def fetch_latest_versions():
     return json_datafile
 
 
-def get_device_item(list_of_devices, shortcode):
+def get_device_item(list_of_devices, dataset):
     """Get specific device from list of Unifi devices"""
     device_item = next(
-        (device for device in list_of_devices if device["ShortCode"] == shortcode),
+        (
+            device
+            for device in list_of_devices
+            if device["ShortCode"] == dataset["type"]
+        ),
         None,
     )
     if device_item is None:
-        unknown_exit(f"Unable to find updates for device series {shortcode}")
+        unknown_exit(
+            f"Unable to find updates for device {dataset['type']} {dataset['model_number']}"
+        )
     return device_item
 
 
-def generate_output(installed_version, latest_version, release_date):
+def generate_output(dataset):
     """Prepare message string and exit code"""
-    if installed_version == latest_version:
+    if dataset["installed_version"] == dataset["latest_version"]:
         state = "OK"
-        message = f"HP VERSION {state} - Firmware {installed_version} is current"
+        message = (
+            f"HP VERSION {state} - Firmware {dataset['installed_version']} is current"
+        )
     else:
         state = "WARNING"
         message = (
-            f"HP VERSION {state} - firmware version {installed_version} "
-            f"differs from the latest available {latest_version} from {release_date}"
+            f"HP VERSION {state} - firmware version {dataset['installed_version']} "
+            f"differs from the latest available {dataset['latest_version']}"
         )
+        if "release_date" in dataset:
+            message += f" from {dataset['release_date']}"
 
     return state, message
 
@@ -149,6 +162,80 @@ def report(state, message):
         sys.exit(2)
     elif state == "UNKNOWN":
         sys.exit(3)
+
+
+def find_version_from_jsdatafile(dataset):
+    """Get latest firmware version from Javascript datafile"""
+    list_of_devices = fetch_latest_versions()
+    device = get_device_item(list_of_devices, dataset)
+    updates = device["software"]["set_1"]["softwareSet"]
+
+    for update in updates:
+        if "Latest build" in update["name"]:
+            dataset["latest_version"] = re.search(
+                "(.*) - Latest build", update["name"]
+            ).group(1)
+            dataset["release_date"] = update["date"]
+
+    if "latest_version" not in dataset:
+        unknown_exit(
+            f"Unable to find updates for device {dataset['type']} {dataset['model_number']}"
+        )
+
+
+def find_version_from_web(dataset):
+    """Get latest firmware version from the download web page"""
+    webpage_url = f"{DOWNLOAD_WEBPAGE}?ProductNumber={dataset['model_number']}"
+    try:
+        webpage = requests.get(webpage_url, verify=False)
+    except (requests.exceptions.RequestException, ValueError) as e:
+        unknown_exit(e)
+    version_match = re.search(f"{DOWNLOAD_PAGE_ELEMENT}.*?>(.*)</span", webpage.text)
+    if version_match:
+        dataset["latest_version"] = version_match.group(1)
+    else:
+        unknown_exit(
+            f"Unable to find updates for device {dataset['type']} {dataset['model_number']}"
+        )
+
+
+def get_system_information(config, dataset):
+    """Get system description via SNMP and parse it"""
+    system_decription = ObjectType(ObjectIdentity("SNMPv2-MIB", "sysDescr", 0))
+    raw_data = get_snmp_data(config, system_decription)
+    add_data_to_set(dataset, raw_data, "sysDescr")
+
+    # Find device type
+    for family in SUPPORTED_SWITCH_FAMILY:
+        type_match = re.search(f"[ ]({family})[ ]", dataset["sysDescr"])
+        if type_match:
+            dataset["type"] = type_match.group(1)
+
+    if "type" not in dataset:
+        unknown_exit(f"Unsupported Hardware: {dataset['sysDescr']}")
+
+    # Find information based on type
+    if dataset["type"] == "1920-24G":
+        description_match = re.search(
+            f"Version ([0-9]+[.][0-9]+), Release ([0-9])+", dataset["sysDescr"]
+        )
+        if description_match:
+            dataset["model_number"] = "JG924A"
+            dataset["version"] = description_match.group(1)
+            dataset["release"] = description_match.group(2)
+            dataset[
+                "installed_version"
+            ] = f"1920-24G-JG924A_{dataset['version']}.R{dataset['release']}"
+
+    elif dataset["type"] == "1920S":
+        description_match = re.search(f"[^,]* ([^,]*), ([^,]*),", dataset["sysDescr"])
+        if description_match:
+            dataset["model_number"] = description_match.group(1)
+            dataset["installed_version"] = description_match.group(2)
+        else:
+            unknown_exit("Unable to get installed firmware version")
+
+    print(dataset["sysDescr"])
 
 
 def main():
@@ -167,9 +254,12 @@ def main():
     )
     parser.add_argument(
         "-a",
-        "--authpassword",
-        required=True,
-        help="Password for snmpv3 authentication ",
+        "--authprotocol",
+        default=DEFAULT_AUTH_PROTOCOL,
+        help="Auth protocol for snmpv3",
+    )
+    parser.add_argument(
+        "-A", "--authpassword", help="Password for snmpv3 authentication ",
     )
     parser.add_argument(
         "-X", "--privpassword", required=True, help="Password for snmpv3 privacy ",
@@ -180,7 +270,6 @@ def main():
         default=DEFAULT_PRIV_PROTOCOL,
         help="Privacy protocol for snmpv3",
     )
-    parser.add_argument("-t", "--type", required=True, help="Device type")
 
     config = vars(parser.parse_args())
     if config["privprotocol"] == "AES":
@@ -190,25 +279,44 @@ def main():
     else:
         unknown_exit(f"Unknown privprotocol {config['privprotocol']}")
 
-    # Get installed version via SNMP
-    dataset = get_snmp_data(config)
-    installed_version = dataset["hpHttpMgVersion"]
+    if config["authprotocol"] == "SHA":
+        config["authprotocol"] = usmHMACSHAAuthProtocol
+    elif config["authprotocol"] == "MD5":
+        config["authprotocol"] = usmHMACMD5AuthProtocol
+    else:
+        unknown_exit(f"Unknown authprotocol {config['authprotocol']}")
+
+    dataset = {}
+    get_system_information(config, dataset)
+
+    # Get version via SNMP
+    # if dataset["type"] == "1920S":
+    #         mib = "HP-httpManageable-MIB"
+    #         version_key = "hpHttpMgVersion"
+    #
+    #     elif dataset["type"] == "1920S":
+    #         mib = "RMON2-MIB"
+    #         version_obect = "probeSoftwareRev"
+    #
+    #     version_obect = ObjectType(
+    #         ObjectIdentity(mib, version_key, 0)
+    #     )
+    #
+    #     raw_data = get_snmp_data(config, version_obect)
+    #     add_data_to_set(dataset, raw_data, version_key)
+    #     dataset["installed_version"] = dataset[version_key]
 
     # Get latest version from web
-    list_of_devices = fetch_latest_versions()
-    device = get_device_item(list_of_devices, config["type"])
-    updates = device["software"]["set_1"]["softwareSet"]
+    if dataset["type"] == "1920S":
+        # find_version_from_jsdatafile(dataset)
+        find_version_from_web(dataset)
+    elif dataset["type"] == "1920":
+        find_version_from_web(dataset)
 
-    latest_version = None
-    for update in updates:
-        if "Latest build" in update["name"]:
-            latest_version = re.search("(.*) - Latest build", update["name"]).group(1)
-            release_date = update["date"]
-
-    if not latest_version:
+    if not dataset["latest_version"]:
         unknown_exit("Unable to find latest update")
 
-    state, message = generate_output(installed_version, latest_version, release_date)
+    state, message = generate_output(dataset)
     report(state, message)
 
 
