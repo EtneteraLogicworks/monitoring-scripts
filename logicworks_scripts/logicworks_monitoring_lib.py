@@ -55,13 +55,21 @@ def add_common_snmp_args(parser):
     )
 
 
-def add_vars_to_dataset(dataset, varBinds, item_description):
+def add_vars_to_dataset(dataset, varBinds, item_description, raw_output=False):
     """Parse single SNMP response"""
-    for varBind in varBinds:
-        var, value = [x.prettyPrint() for x in varBind]
-        match_key = re.search(f"({item_description}.*)[.]", var)
-        if match_key:
-            dataset[match_key.group(1)] = value
+
+    if raw_output:
+        for oid, value in varBinds:
+            dataset["oid"] = str(oid)
+            dataset["pretty_oid"] = oid.prettyPrint()
+            dataset[f"{item_description}"] = value.asOctets()
+
+    else:
+        for varBind in varBinds:
+            var, value = [x.prettyPrint() for x in varBind]
+            match_key = re.search(f"({item_description}.*)[.]", var)
+            if match_key:
+                dataset[match_key.group(1)] = value
 
 
 def add_table_to_dataset(dataset, raw_data, item_description):
