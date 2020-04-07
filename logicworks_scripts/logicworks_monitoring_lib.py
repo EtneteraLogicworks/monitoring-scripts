@@ -101,7 +101,7 @@ def set_snmp_security_protocols(config):
     return priv_protocol, auth_protocol
 
 
-def get_snmp_data(config, *args):
+def get_snmp_data(config, *args, snmp_engine=SnmpEngine()):
     """Retrieve necessary data via SNMP"""
 
     priv_protocol, auth_protocol = set_snmp_security_protocols(config)
@@ -116,7 +116,7 @@ def get_snmp_data(config, *args):
     target = UdpTransportTarget((config["host"], config["port"]))
 
     errorIndication, errorStatus, errorIndex, varBinds = next(
-        getCmd(SnmpEngine(), authdata, target, ContextData(), *args)
+        getCmd(snmp_engine, authdata, target, ContextData(), *args)
     )
     if errorIndication:
         raise ValueError(errorIndication)
@@ -128,11 +128,10 @@ def get_snmp_data(config, *args):
     return varBinds
 
 
-def get_snmp_table_data(config, *args):
+def get_snmp_table_data(config, *args, snmp_engine=SnmpEngine()):
     """Retrieve necessary data via SNMP"""
 
     priv_protocol, auth_protocol = set_snmp_security_protocols(config)
-    snmp = SnmpEngine()
 
     authdata = UsmUserData(
         config["user"],
@@ -146,7 +145,7 @@ def get_snmp_table_data(config, *args):
 
     snmp_data = []
     for (errorIndication, errorStatus, errorIndex, varBinds) in nextCmd(
-        snmp, authdata, target, ContextData(), *args, lexicographicMode=False,
+        snmp_engine, authdata, target, ContextData(), *args, lexicographicMode=False,
     ):
         if errorIndication:
             raise ValueError(errorIndication)

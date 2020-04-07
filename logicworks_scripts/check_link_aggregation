@@ -7,7 +7,7 @@ Information is retrieved via SNMPv3 using pysnmp library.
 
 import argparse
 
-from pysnmp.hlapi import ObjectIdentity, ObjectType
+from pysnmp.hlapi import ObjectIdentity, ObjectType, SnmpEngine
 
 from logicworks_monitoring_lib import (
     add_common_snmp_args,
@@ -110,7 +110,7 @@ def generate_output(interface_info):
     return state, message
 
 
-def get_port_aggregation_flags(config, interface_info, interface):
+def get_port_aggregation_flags(config, interface_info, interface, snmp_engine):
     """Get aggregation flags"""
 
     port_aggregation_state = ObjectType(
@@ -118,7 +118,7 @@ def get_port_aggregation_flags(config, interface_info, interface):
     )
 
     try:
-        raw_data = get_snmp_data(config, port_aggregation_state)
+        raw_data = get_snmp_data(config, port_aggregation_state, snmp_engine=snmp_engine)
     except ValueError as err:
         unknown_exit(SERVICE, err)
     add_vars_to_dataset(
@@ -126,13 +126,13 @@ def get_port_aggregation_flags(config, interface_info, interface):
     )
 
 
-def get_port_aggregation_group(config, interface_info, interface):
+def get_port_aggregation_group(config, interface_info, interface, snmp_engine):
     """Get aggregation group"""
     port_aggregation_group = ObjectType(
         ObjectIdentity("LAG-MIB", "dot3adAggPortSelectedAggID", interface)
     )
     try:
-        raw_data = get_snmp_data(config, port_aggregation_group)
+        raw_data = get_snmp_data(config, port_aggregation_group, snmp_engine=snmp_engine)
     except ValueError as err:
         unknown_exit(SERVICE, err)
     add_vars_to_dataset(interface_info[-1], raw_data, "dot3adAggPortSelectedAggID")
@@ -155,10 +155,11 @@ def main():
     config = vars(parser.parse_args())
 
     interface_info = []
+    snmp_engine = SnmpEngine()
     for interface in config["interfaces"].split(","):
         interface_info.append({"interface": interface})
-        get_port_aggregation_flags(config, interface_info, interface)
-        get_port_aggregation_group(config, interface_info, interface)
+        get_port_aggregation_flags(config, interface_info, interface, snmp_engine)
+        get_port_aggregation_group(config, interface_info, interface, snmp_engine)
 
     state, message = generate_output(interface_info)
     report(state, message)
