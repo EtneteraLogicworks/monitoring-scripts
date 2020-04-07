@@ -36,14 +36,14 @@ def add_performace_data(config, dataset):
     crit_kb = int(config["warning"] / 100 * dataset["mem_total"])
     inverted_crit_kb = dataset["mem_total"] - crit_kb
     message += " |"
-    message += f" 'TOTAL'" f"={dataset['mem_total']}[KB];;;;"
+    message += f" 'TOTAL'" f"={dataset['mem_total']}KB;;;;"
     message += (
         f" 'USED'"
-        f"={dataset['memory_used']}[KB];{warn_kb};{crit_kb};0;{dataset['mem_total']}"
+        f"={dataset['memory_used']}KB;{warn_kb};{crit_kb};0;{dataset['mem_total']}"
     )
     message += (
         f" 'FREE'"
-        f"={dataset['mem_free']}[KB]"
+        f"={dataset['mem_free']}KB"
         f";{inverted_warn_kb};{inverted_crit_kb};0;{dataset['mem_total']}"
     )
     return message
