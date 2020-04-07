@@ -55,7 +55,7 @@ def add_common_snmp_args(parser):
     )
 
 
-def add_vars_to_dataset(dataset, varBinds, item_description, raw_output=False):
+def add_vars_to_dataset(dataset, varBinds, item_description='', raw_output=False):
     """Parse single SNMP response"""
 
     if raw_output:
@@ -67,7 +67,7 @@ def add_vars_to_dataset(dataset, varBinds, item_description, raw_output=False):
     else:
         for varBind in varBinds:
             var, value = [x.prettyPrint() for x in varBind]
-            match_key = re.search(f"({item_description}.*)[.]", var)
+            match_key = re.search(f"::({item_description}.*)[.]", var)
             if match_key:
                 dataset[match_key.group(1)] = value
 
