@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""check_hp_load
+"""check_switch_load
 
 Script checks switch cpu load.
 Information is retrieved via SNMPv3 using pysnmp library.

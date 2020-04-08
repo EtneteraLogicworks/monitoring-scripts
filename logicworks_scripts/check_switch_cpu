@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""check_hp_cpu
+"""check_switch_cpu
 
 Script checks switch cpu usage.
 Information is retrieved via SNMPv3 using pysnmp library.

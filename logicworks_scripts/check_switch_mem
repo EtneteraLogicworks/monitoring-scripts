@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""check_hp_mem
+"""check_switch_mem
 
 Script checks switch memory usage.
 Information is retrieved via SNMPv3 using pysnmp library.
