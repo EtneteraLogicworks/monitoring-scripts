@@ -54,7 +54,7 @@ def generate_output(config, dataset):
 
 def get_hp_cpu_usage(cpu_load):
     """Parse HP CPU usage from load string"""
-    cpu_usage_match = re.search("5 Secs \\( ([0-9.]*?)%", cpu_load)
+    cpu_usage_match = re.search("5 Secs \\([ ]*([0-9.]*?)%", cpu_load)
     if not cpu_usage_match:
         unknown_exit(SERVICE, f"Unable to parse HP switch load {cpu_load}")
     return int(float(cpu_usage_match.group(1)))
