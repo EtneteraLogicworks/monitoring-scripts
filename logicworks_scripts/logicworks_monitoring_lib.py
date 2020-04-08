@@ -72,13 +72,13 @@ def add_vars_to_dataset(dataset, varBinds, item_description='', raw_output=False
                 dataset[match_key.group(1)] = value
 
 
-def add_table_to_dataset(dataset, raw_data, item_description):
+def add_table_to_dataset(dataset, raw_data, item_description=''):
     """Parse single SNMP response"""
     for item in raw_data:
         dataset.append({})
         for varBind in item:
             interface_id, val = [x.prettyPrint() for x in varBind]
-            column_match = re.search(f"({item_description}.*)[.]", interface_id)
+            column_match = re.search(f"::({item_description}.*)[.]", interface_id)
             if column_match:
                 dataset[-1][column_match.group(1)] = val
 
