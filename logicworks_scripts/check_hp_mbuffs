@@ -57,7 +57,7 @@ def generate_output(config, dataset):
     else:
         state = "OK"
     message = (
-        f"{SERVICE} {state} - {dataset['mbuffs_used_percentage'] } mbuffs used "
+        f"{SERVICE} {state} - {dataset['mbuffs_used_percentage'] } % mbuffs used "
         f"({dataset['agentSwitchMbufsUsed']}/{dataset['agentSwitchMbufsTotal']})"
     )
     message = message + add_performace_data(config, dataset)
