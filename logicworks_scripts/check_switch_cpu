@@ -120,8 +120,6 @@ def main():
     else:
         unknown_exit(SERVICE, f"Switch family {config['family']} NOT known")
 
-    print(dataset)
-
     state, message = generate_output(config, dataset)
     report(state, message)
 
