@@ -84,7 +84,7 @@ def parse_hp_load(cpu_load):
     """Parse HP CPU load string"""
     load_dict = {}
     load_match = re.search(
-        "60 Secs \\( ([0-9.]*?)%.*300 Secs \\( ([0-9.]*?)%", cpu_load
+        "60 Secs \\([ ]*([0-9.]*?)%.*300 Secs \\([ ]*([0-9.]*?)%", cpu_load
     )
     if load_match:
         load_dict["load1"] = round(float(load_match.group(1)) / 100, 2)
