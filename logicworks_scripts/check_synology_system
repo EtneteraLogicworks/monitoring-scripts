@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""check_switch_system
+"""check_synology_system
 
 Script check various Synology system statuses:
   - Temperature
