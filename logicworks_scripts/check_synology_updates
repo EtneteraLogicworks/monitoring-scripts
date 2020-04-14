@@ -13,9 +13,13 @@ from xml.etree import ElementTree
 import requests
 from pysnmp.hlapi import ObjectIdentity, ObjectType
 
-from logicworks_monitoring_lib import (add_common_snmp_args,
-                                       add_vars_to_dataset, get_snmp_data,
-                                       report, unknown_exit)
+from logicworks_monitoring_lib import (
+    add_common_snmp_args,
+    add_vars_to_dataset,
+    get_snmp_data,
+    report,
+    unknown_exit,
+)
 
 SERVICE = "SYNOLOGY UPDATE"
 SYNOLOGY_UPDATE_FEED = "https://update.synology.com/autoupdate/genRSS.php"
@@ -23,30 +27,25 @@ SYNOLOGY_UPDATE_FEED = "https://update.synology.com/autoupdate/genRSS.php"
 
 def compare_synology_version(dataset):
     """
-    We need to compare Synology version since version string  obtained via SNMP
-    looks like DSM 6.2-24922 and latest version in actually 6.2.2-24922 but they
-    are one same version.
+    We need to compare Synology version since version string obtained via SNMP
+    might look like DSM 6.2-24922 and latest version in actually 6.2.2-24922
+    but they are the same version.
     """
-    try:
-        latest_system = re.search(
-            "^([A-Z]+) [.0-9]+[-][-0-9]+$", dataset["latest_version"]
-        ).group(1)
-        latest_version = re.search(
-            "^[A-Z]+ ([.0-9]+)[-][-0-9]+$", dataset["latest_version"]
-        ).group(1)
-        latest_build = re.search(
-            "^[A-Z]+ [.0-9]+[-]([-0-9]+)$", dataset["latest_version"]
-        ).group(1)
-        installed_system = re.search(
-            "^([A-Z]+) [.0-9]+[-][-0-9]+$", dataset["version"]
-        ).group(1)
-        installed_version = re.search(
-            "^[A-Z]+ ([.0-9]+)[-][-0-9]+$", dataset["version"]
-        ).group(1)
-        installed_build = re.search(
-            "^[A-Z]+ [.0-9]+[-]([-0-9]+)$", dataset["version"]
-        ).group(1)
-    except AttributeError:
+    version_regex = "^([A-Z]+) ([.0-9]+)[-]([-0-9]+)$"
+    latest_match = re.search(version_regex, dataset["latest_version"])
+    if latest_match:
+        latest_system = latest_match.group(1)
+        latest_version = latest_match.group(2)
+        latest_build = latest_match.group(3)
+    else:
+        unknown_exit(SERVICE, "Unable compare Synology system versions")
+
+    installed_match = re.search(version_regex, dataset["version"])
+    if installed_match:
+        installed_system = installed_match.group(1)
+        installed_version = installed_match.group(2)
+        installed_build = installed_match.group(3)
+    else:
         unknown_exit(SERVICE, "Unable compare Synology system versions")
 
     if latest_system != installed_system:
