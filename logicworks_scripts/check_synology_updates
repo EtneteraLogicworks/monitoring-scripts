@@ -3,7 +3,7 @@
 
 Script checks if Synology is up to date:
 Installed system version is retrieved via SNMPv3 using pysnmp library.
-Latest available sytem version is retrieve TODO
+Latest available system version is retrieved from RSS feed.
 """
 
 import argparse
