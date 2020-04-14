@@ -54,7 +54,7 @@
 #########################################################
 APPNAME=$(basename $0)
 AUTHOR="Jason Leonard"
-VERSION="4.0"
+VERSION="4.1"
 
 # Default settings for connection
 COMMUNITY='public'
