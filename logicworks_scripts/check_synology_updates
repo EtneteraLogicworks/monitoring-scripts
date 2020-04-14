@@ -125,8 +125,8 @@ def get_latest_version(dataset):
         latest_version = item.find("title").text
         models = item.findall("model")
         for model in models:
-            model_name = model.find("mUnique").text.lower()
-            if model_name.endswith(dataset["modelName"].lower()):
+            model_name = model.find("mUnique").text
+            if model_name.endswith(dataset["sanitazed_model"]):
                 dataset["latest_version"] = latest_version
                 return
 
@@ -152,6 +152,7 @@ def main():
     except ValueError as err:
         unknown_exit(SERVICE, err)
     add_vars_to_dataset(dataset, raw_data)
+    dataset["sanitazed_model"] = re.sub("[a-zA-Z]", "", dataset["modelName"])
 
     parse_update_state(dataset)
     try:
