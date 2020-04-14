@@ -14,13 +14,9 @@ import argparse
 
 from pysnmp.hlapi import ObjectIdentity, ObjectType
 
-from logicworks_monitoring_lib import (
-    add_common_snmp_args,
-    add_vars_to_dataset,
-    get_snmp_data,
-    report,
-    unknown_exit,
-)
+from logicworks_monitoring_lib import (add_common_snmp_args,
+                                       add_vars_to_dataset, get_snmp_data,
+                                       report, unknown_exit)
 
 SERVICE = "SYNOLOGY SYSTEM"
 
@@ -33,22 +29,10 @@ def add_performace_data(config, dataset):
         f" 'temperature'"
         f"={dataset['temperature']};{config['warning']};{config['critical']};;"
     )
-    message += (
-        f" 'system status'"
-        f"={dataset['systemStatus']};;;;"
-    )
-    message += (
-        f" 'power status'"
-        f"={dataset['powerStatus']};;;;"
-    )
-    message += (
-        f" 'system fan status'"
-        f"={dataset['systemFanStatus']};;;;"
-    )
-    message += (
-        f" 'CPU fan status'"
-        f"={dataset['cpuFanStatus']};;;;"
-    )
+    message += f" 'system status'" f"={dataset['systemStatus']};;;;"
+    message += f" 'power status'" f"={dataset['powerStatus']};;;;"
+    message += f" 'system fan status'" f"={dataset['systemFanStatus']};;;;"
+    message += f" 'CPU fan status'" f"={dataset['cpuFanStatus']};;;;"
     return message
 
 
@@ -83,7 +67,6 @@ def generate_output(config, dataset):
     if state == "OK":
         message += " All systems nominal"
 
-
     message = f"{SERVICE} {state} -" + message + add_performace_data(config, dataset)
     return state, message
 
@@ -113,25 +96,16 @@ def main():
 
     dataset = {}
 
-    system_status = ObjectType(
-        ObjectIdentity("SYNOLOGY-SYSTEM-MIB", "systemStatus", 0)
-    )
-    power_status = ObjectType(
-        ObjectIdentity("SYNOLOGY-SYSTEM-MIB", "powerStatus", 0)
-    )
-    temperature = ObjectType(
-        ObjectIdentity("SYNOLOGY-SYSTEM-MIB", "temperature", 0)
-    )
-    system_fan = ObjectType(
-        ObjectIdentity("SYNOLOGY-SYSTEM-MIB", "systemFanStatus", 0)
-    )
-    cpu_fan = ObjectType(
-        ObjectIdentity("SYNOLOGY-SYSTEM-MIB", "cpuFanStatus", 0)
-    )
-
+    system_status = ObjectType(ObjectIdentity("SYNOLOGY-SYSTEM-MIB", "systemStatus", 0))
+    power_status = ObjectType(ObjectIdentity("SYNOLOGY-SYSTEM-MIB", "powerStatus", 0))
+    temperature = ObjectType(ObjectIdentity("SYNOLOGY-SYSTEM-MIB", "temperature", 0))
+    system_fan = ObjectType(ObjectIdentity("SYNOLOGY-SYSTEM-MIB", "systemFanStatus", 0))
+    cpu_fan = ObjectType(ObjectIdentity("SYNOLOGY-SYSTEM-MIB", "cpuFanStatus", 0))
 
     try:
-        raw_data = get_snmp_data(config, system_status, power_status, temperature, system_fan, cpu_fan)
+        raw_data = get_snmp_data(
+            config, system_status, power_status, temperature, system_fan, cpu_fan
+        )
     except ValueError as err:
         unknown_exit(SERVICE, err)
     add_vars_to_dataset(dataset, raw_data)
