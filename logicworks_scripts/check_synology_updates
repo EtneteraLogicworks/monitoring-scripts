@@ -73,13 +73,13 @@ def generate_output(dataset):
         state = "WARNING"
         message = (
             f"{SERVICE} {state} - "
-            f"System version {dataset['version']} seems current"
+            f"System version {dataset['latest_version']} seems current"
             "but Synology thinks there is an update available"
         )
     else:
         state = "OK"
         message = (
-            f"{SERVICE} {state} - " f"System version {dataset['version']} is current"
+            f"{SERVICE} {state} - " f"System version {dataset['latest_version']} is current"
         )
 
     message += f" (system update state: {dataset['upgrade_state']})."
