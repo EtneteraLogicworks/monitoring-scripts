@@ -707,6 +707,9 @@ function CheckOneTray (){
 
 	TRAY_CAPACITY=`walk_snmp $OID_prtInputCurrentLevel.$1 true`
 	check_snmp_error "$?" "$TRAY_CAPACITY"
+  if [ "${TRAY_CAPACITY}" == "No Such Instance currently exists at this OID" ]; then
+      return
+  fi
 
 	if [ -z "$TRAY_CAPACITY" ]; then
 		STATE_STRING="$STATE_STRING UNKNOWN - Tray $1 not found. Use the TRAY TEST option to determine which trays may be monitored."
