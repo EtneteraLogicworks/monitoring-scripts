@@ -770,7 +770,7 @@ function CheckOneTray (){
 				check_snmp_error "$?" "$TRAY_MAX_CAPACITY"
 
 				let "TRAY_CAPACITY = $TRAY_CAPACITY * 100 / $TRAY_MAX_CAPACITY"
-				if [ "$TRAY_CAPACITY" -gt "$CRITICAL" ]; then
+				if [ "$TRAY_CAPACITY" -gt "$WARNING" ]; then
 					STATE_STRING="$STATE_STRING$TRAY_NAME is at $TRAY_CAPACITY%% - OK!$SEPARATOR"
 				else
 					if [ "$TRAY_CAPACITY" -le "$WARNING" ]; then
