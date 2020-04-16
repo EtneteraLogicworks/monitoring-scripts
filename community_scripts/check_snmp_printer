@@ -174,7 +174,7 @@ function print_help {
 	echo '	-n|--contextname'
 	echo '		used for SNMPv3 messages'
 	echo '		Default is the empty string'
-	echo '	-l|--privlevel { noAuthNoPriv | authNoPriv | authPriv }'
+	echo '	-l|--privelegelevel { noAuthNoPriv | authNoPriv | authPriv }'
 	echo '		SNMP v3 privilege level'
 	echo '	-x|--privprotocol { DES | AES }'
 	echo '		SNMP v3 privacy protocol'
