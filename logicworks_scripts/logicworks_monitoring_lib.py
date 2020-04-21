@@ -4,6 +4,7 @@ Library with common code for other Logicworks monitoring scripts
 """
 
 import re
+import struct
 import sys
 
 from pysnmp.hlapi import (
@@ -22,6 +23,15 @@ from pysnmp.hlapi import (
 SNMP_PORT = 161
 DEFAULT_PRIV_PROTOCOL = "AES"
 DEFAULT_AUTH_PROTOCOL = "SHA"
+
+
+def decode_float(value):
+    """Decode opaque float data"""
+    if value.startswith("0x9f78"):
+        val = value.replace("0x9f7804", "")
+        return float(struct.unpack("!f", bytearray.fromhex(val))[0])
+    else:
+        raise ValueError(f"Data {value} not in opaque float format")
 
 
 def add_common_snmp_args(parser):
