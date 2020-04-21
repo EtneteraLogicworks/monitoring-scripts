@@ -72,7 +72,7 @@ def generate_output(config, dataset):
 
 
 def main():
-    """Parse args and check if UniFi has latest firmware installed"""
+    """Parse args and execute script logic"""
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )

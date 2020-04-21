@@ -81,7 +81,7 @@ def prepare_data(dataset):
 
 
 def main():
-    """Parse args and check number of UniFi Wi-Fi clients"""
+    """Parse args and execute script logic"""
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
