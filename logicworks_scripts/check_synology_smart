@@ -34,7 +34,7 @@ def add_performace_data(dataset):
     return message
 
 
-def generate_output(dataset):
+def generate_output(config, dataset):
     """Prepare message string and exit code"""
     state = "OK"
     message = ""
@@ -43,11 +43,13 @@ def generate_output(dataset):
         if attribute["diskSMARTAttrStatus"] != "OK":
             state = "CRITICAL"
             message += (
-                f"{attribute['diskSMARTAttrName']}: {attribute['diskSMARTAttrStatus']}"
+                f"{attribute['diskSMARTAttrName']}: {attribute['diskSMARTAttrStatus']} "
             )
 
     if state == "OK":
-        message = "No problems found "
+        message += f"No problems found on disk {config['device']}"
+    else:
+        message += f"SMART problems detected on disk {config['device']}"
 
     message = f"{SERVICE} {state} - " + message + add_performace_data(dataset)
     return state, message
@@ -100,7 +102,7 @@ def main():
         if item["diskSMARTInfoDevName"] == config["device"]:
             smart_dataset.append(item)
 
-    state, message = generate_output(smart_dataset)
+    state, message = generate_output(config, smart_dataset)
     report(state, message)
 
 
