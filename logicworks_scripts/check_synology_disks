@@ -33,7 +33,7 @@ def add_performace_data(config, dataset):
     message += "|"
     for disk in dataset:
         message += (
-            f" 'temperature'"
+            f" 'temperature {disk['diskID']}'"
             f"={disk['diskTemperature']};{config['warning']};{config['critical']};;"
         )
     return message
