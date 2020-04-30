@@ -9,10 +9,13 @@ import argparse
 
 from pysnmp.hlapi import ObjectIdentity, ObjectType
 
-from logicworks_monitoring_lib import (add_common_snmp_args,
-                                       add_table_to_dataset,
-                                       get_snmp_table_data, report,
-                                       unknown_exit)
+from logicworks_monitoring_lib import (
+    add_common_snmp_args,
+    add_table_to_dataset,
+    get_snmp_table_data,
+    report,
+    unknown_exit,
+)
 
 SERVICE = "SYNOLOGY RAID"
 DISK_STATUS = {
@@ -50,13 +53,12 @@ def generate_output(dataset):
         if raid_status in ["Degrade", "Crashed", "RaidUnknownStatus", "Unknown"]:
             state = "CRITICAL"
             message += f"Array {raid['raidName']} state critical: {raid_status}. "
-        elif raid_status not in ["Normal"]:
+        elif raid_status not in ["Normal", "DataScrubbing"]:
             if state != "CRITICAL":
                 state = "WARNING"
             message += f"Array {raid['raidName']} state warning: {raid_status}. "
-
-    if state == "OK":
-        message = "All RAID arrays in Normal state "
+        else:
+            message += f"Array {raid['raidName']} state ok: {raid_status}. "
 
     message = f"{SERVICE} {state} - " + message
     return state, message
