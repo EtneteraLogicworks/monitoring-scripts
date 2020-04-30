@@ -3,7 +3,7 @@
 # ASN.1 source http://mibs.snmplabs.com:80/asn1/SYNOLOGY-RAID-MIB
 # Produced by pysmi-0.3.4 at Tue Apr 14 10:38:45 2020
 # On host LogicAir-MacBookAir.local platform Darwin version 19.4.0 by user michal
-# Using Python version 3.7.3 (default, Mar  6 2020, 22:34:30) 
+# Using Python version 3.7.3 (default, Mar  6 2020, 22:34:30)
 #
 Integer, ObjectIdentifier, OctetString = mibBuilder.importSymbols("ASN1", "Integer", "ObjectIdentifier", "OctetString")
 NamedValues, = mibBuilder.importSymbols("ASN1-ENUMERATION", "NamedValues")
@@ -24,7 +24,7 @@ raidIndex = MibTableColumn((1, 3, 6, 1, 4, 1, 6574, 3, 1, 1, 1), Integer32().sub
 if mibBuilder.loadTexts: raidIndex.setStatus('current')
 raidName = MibTableColumn((1, 3, 6, 1, 4, 1, 6574, 3, 1, 1, 2), OctetString()).setMaxAccess("readonly")
 if mibBuilder.loadTexts: raidName.setStatus('current')
-raidStatus = MibTableColumn((1, 3, 6, 1, 4, 1, 6574, 3, 1, 1, 3), Integer32().subtype(subtypeSpec=ValueRangeConstraint(1, 12))).setMaxAccess("readonly")
+raidStatus = MibTableColumn((1, 3, 6, 1, 4, 1, 6574, 3, 1, 1, 3), Integer32().subtype(subtypeSpec=ValueRangeConstraint(1, 21))).setMaxAccess("readonly")
 if mibBuilder.loadTexts: raidStatus.setStatus('current')
 raidConformance = MibIdentifier((1, 3, 6, 1, 4, 1, 6574, 3, 2))
 raidCompliances = MibIdentifier((1, 3, 6, 1, 4, 1, 6574, 3, 2, 1))
