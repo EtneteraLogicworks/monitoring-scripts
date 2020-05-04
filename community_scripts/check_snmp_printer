@@ -385,21 +385,21 @@ function CheckDeviceStatus(){
 		check_snmp_error "$?" "$DEVICE_STATUS"
 
 		case "$DEVICE_STATUS" in
-			"unknown(1)")
+			1|"unknown"|"unknown(1)")
 				STATE_STRING="$STATE_STRING$DEVICE_STATUS - WARNING!$SEPARATOR"
 				CURRENT_STATUS=$STATE_WARN
 			;;
-			"running(2)")
+			2|"running"|"running(2)")
 				STATE_STRING="$STATE_STRING$DEVICE_STATUS - OK!$SEPARATOR"
 			;;
-			"warning(3)")
+			3|"warning"|"warning(3)")
 				STATE_STRING="$STATE_STRING$DEVICE_STATUS - WARNING!$SEPARATOR"
 				CURRENT_STATUS=$STATE_WARN
 			;;
-			"testing(4)")
+			4|"testing"|"testing(4)")
 				STATE_STRING="$STATE_STRING$DEVICE_STATUS - OK!$SEPARATOR"
 			;;
-			"down(5)")
+			5|"down"|"down(5)")
 				STATE_STRING="$STATE_STRING$DEVICE_STATUS - CRITICAL!$SEPARATOR"
 				CURRENT_STATUS=$STATE_CRIT
 			;;
