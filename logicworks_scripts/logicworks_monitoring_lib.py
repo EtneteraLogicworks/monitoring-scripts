@@ -8,6 +8,7 @@ import struct
 import sys
 
 from pysnmp.hlapi import (
+    CommunityData,
     ContextData,
     SnmpEngine,
     UdpTransportTarget,
@@ -39,12 +40,11 @@ def add_common_snmp_args(parser):
     parser.add_argument(
         "-H", "--host", required=True, help="Name or IPv4 address of host to check"
     )
+    parser.add_argument("-C", "--community", help="SNMP v1 and v2c community string")
     parser.add_argument(
         "-P", "--port", default=SNMP_PORT, help=f"SNMP port (Default {SNMP_PORT})"
     )
-    parser.add_argument(
-        "-u", "--user", required=True, help="User for snmpv3 authentication "
-    )
+    parser.add_argument("-u", "--user", help="User for snmpv3 authentication ")
     parser.add_argument(
         "-a",
         "--authprotocol",
@@ -55,7 +55,7 @@ def add_common_snmp_args(parser):
         "-A", "--authpassword", help="Password for snmpv3 authentication ",
     )
     parser.add_argument(
-        "-X", "--privpassword", required=True, help="Password for snmpv3 privacy ",
+        "-X", "--privpassword", help="Password for snmpv3 privacy ",
     )
     parser.add_argument(
         "-x",
@@ -125,18 +125,30 @@ def set_snmp_security_protocols(config):
     return priv_protocol, auth_protocol
 
 
+def prepare_authdata(config):
+    """Prapare authentication data object for various SNMP versions"""
+    # SNMP v1 and v2c
+    if config["community"]:
+        authdata = CommunityData(config["community"])
+    # SNMP v3
+    else:
+        priv_protocol, auth_protocol = set_snmp_security_protocols(config)
+
+        authdata = UsmUserData(
+            config["user"],
+            authKey=config["authpassword"],
+            privKey=config["privpassword"],
+            authProtocol=auth_protocol,
+            privProtocol=priv_protocol,
+        )
+    return authdata
+
+
 def get_snmp_data(config, *args, snmp_engine=SnmpEngine()):
     """Retrieve necessary data via SNMP"""
 
-    priv_protocol, auth_protocol = set_snmp_security_protocols(config)
+    authdata = prepare_authdata(config)
 
-    authdata = UsmUserData(
-        config["user"],
-        authKey=config["authpassword"],
-        privKey=config["privpassword"],
-        authProtocol=auth_protocol,
-        privProtocol=priv_protocol,
-    )
     target = UdpTransportTarget((config["host"], config["port"]))
 
     error_indication, error_status, error_index, var_binds = next(
@@ -155,15 +167,7 @@ def get_snmp_data(config, *args, snmp_engine=SnmpEngine()):
 def get_snmp_table_data(config, *args, snmp_engine=SnmpEngine()):
     """Retrieve necessary data via SNMP"""
 
-    priv_protocol, auth_protocol = set_snmp_security_protocols(config)
-
-    authdata = UsmUserData(
-        config["user"],
-        authKey=config["authpassword"],
-        privKey=config["privpassword"],
-        authProtocol=auth_protocol,
-        privProtocol=priv_protocol,
-    )
+    authdata = prepare_authdata(config)
 
     target = UdpTransportTarget((config["host"], config["port"]))
 
