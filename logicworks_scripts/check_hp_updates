@@ -27,7 +27,7 @@ from logicworks_monitoring_lib import (
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
 SERVICE = "HP UPDATE"
-SUPPORTED_SWITCH_FAMILY = ["1920-24G", "1920S", "1820"]
+SUPPORTED_SWITCH_FAMILY = ["1920-24G", "1920S", "1810", "1820"]
 
 
 DOWNLOAD_WEBPAGE = "https://h10145.www1.hpe.com/downloads/SoftwareReleases.aspx"
@@ -191,6 +191,9 @@ def main():
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
+    parser.add_argument(
+        "-m", "--model", default="HP", help="Switch model.",
+    )
     add_common_snmp_args(parser)
 
     config = vars(parser.parse_args())
@@ -199,28 +202,27 @@ def main():
     dataset = {}
 
     get_system_information(config, dataset)
+    dataset["model_number"] = dataset.get("model_number", config["model"])
     # Get version via SNMP
-    # if dataset["type"] == "1920S":
-    #         mib = "HP-httpManageable-MIB"
-    #         version_key = "hpHttpMgVersion"
-    #
-    #     elif dataset["type"] == "1920S":
-    #         mib = "RMON2-MIB"
-    #         version_obect = "probeSoftwareRev"
-    #
-    #     version_obect = ObjectType(
-    #         ObjectIdentity(mib, version_key, 0)
-    #     )
-    #
-    #     raw_data = get_snmp_data(config, version_obect)
-    #     add_vars_to_dataset(dataset, raw_data, version_key)
-    #     dataset["installed_version"] = dataset[version_key]
+    if dataset["type"] in ["1810"]:
+        mib = "HP-httpManageable-MIB"
+        version_key = "hpHttpMgVersion"
+
+        # elif dataset["type"] == "1920S":
+        #    mib = "RMON2-MIB"
+        #   version_obect = "probeSoftwareRev"
+
+        version_obect = ObjectType(ObjectIdentity(mib, version_key, 0))
+
+        raw_data = get_snmp_data(config, version_obect)
+        add_vars_to_dataset(dataset, raw_data, version_key)
+        dataset["installed_version"] = dataset[version_key]
     # Get latest version from web
     if dataset["type"] in ["1820", "1920S"]:
         find_version_from_jsdatafile(dataset)
         # Fallback query
         # find_version_from_web(dataset)
-    elif dataset["type"] in ["1920-24G"]:
+    elif dataset["type"] in ["1810", "1920-24G"]:
         find_version_from_web(dataset)
 
     if "latest_version" not in dataset:
