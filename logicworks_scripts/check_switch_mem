@@ -118,7 +118,7 @@ def main():
         mem2 = ObjectType(
             ObjectIdentity("HP-SWITCHING-MIB", "agentSwitchCpuProcessMemFree", 0)
         )
-    elif config["family"] == "1920S":
+    elif config["family"] == "1920":
         mem1 = ObjectType(
             ObjectIdentity("HH3C-ENTITY-EXT-MIB", "hh3cEntityExtMemSize", 8)
         )
