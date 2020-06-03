@@ -118,7 +118,7 @@ def main():
     dataset["load_warning"] = parse_threshold(config["warning"])
     dataset["load_critical"] = parse_threshold(config["critical"])
 
-    if config["family"] == "HP":
+    if config["family"] == "1920S":
         cpu = ObjectType(
             ObjectIdentity(
                 "HP-SWITCHING-MIB", "agentSwitchCpuProcessTotalUtilization", 0
@@ -133,7 +133,7 @@ def main():
         unknown_exit(SERVICE, err)
     add_vars_to_dataset(dataset, raw_data)
 
-    if config["family"] == "HP":
+    if config["family"] == "1920S":
         dataset["load"] = parse_hp_load(
             dataset["agentSwitchCpuProcessTotalUtilization"]
         )

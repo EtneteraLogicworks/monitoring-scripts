@@ -111,14 +111,14 @@ def main():
 
     dataset = {}
 
-    if config["family"] == "HP":
+    if config["family"] == "1920S":
         mem1 = ObjectType(
             ObjectIdentity("HP-SWITCHING-MIB", "agentSwitchCpuProcessMemAvailable", 0)
         )
         mem2 = ObjectType(
             ObjectIdentity("HP-SWITCHING-MIB", "agentSwitchCpuProcessMemFree", 0)
         )
-    elif config["family"] == "3COM":
+    elif config["family"] == "1920S":
         mem1 = ObjectType(
             ObjectIdentity("HH3C-ENTITY-EXT-MIB", "hh3cEntityExtMemSize", 8)
         )
@@ -134,10 +134,10 @@ def main():
         unknown_exit(SERVICE, err)
     add_vars_to_dataset(dataset, raw_data)
 
-    if config["family"] == "HP":
+    if config["family"] == "1920S":
         dataset["mem_total"] = int(dataset["agentSwitchCpuProcessMemAvailable"])
         dataset["mem_free"] = int(dataset["agentSwitchCpuProcessMemFree"])
-    elif config["family"] == "3COM":
+    elif config["family"] == "1920":
         dataset["mem_total"] = int(int(dataset["hh3cEntityExtMemSize"]) / 1000)
         dataset["memory_usage"] = int(dataset["hh3cEntityExtMemUsage"])
     else:

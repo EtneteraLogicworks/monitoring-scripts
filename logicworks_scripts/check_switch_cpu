@@ -94,13 +94,13 @@ def main():
 
     dataset = {}
 
-    if config["family"] == "HP":
+    if config["family"] == "1920S":
         cpu = ObjectType(
             ObjectIdentity(
                 "HP-SWITCHING-MIB", "agentSwitchCpuProcessTotalUtilization", 0
             )
         )
-    elif config["family"] == "3COM":
+    elif config["family"] == "1920":
         cpu = ObjectType(
             ObjectIdentity("HH3C-ENTITY-EXT-MIB", "hh3cEntityExtCpuUsage", 8)
         )
@@ -113,11 +113,11 @@ def main():
         unknown_exit(SERVICE, err)
     add_vars_to_dataset(dataset, raw_data)
 
-    if config["family"] == "HP":
+    if config["family"] == "1920S":
         dataset["cpu_usage"] = get_hp_cpu_usage(
             dataset["agentSwitchCpuProcessTotalUtilization"]
         )
-    elif config["family"] == "3COM":
+    elif config["family"] == "1920":
         dataset["cpu_usage"] = int(dataset["hh3cEntityExtCpuUsage"])
     else:
         unknown_exit(SERVICE, f"Switch family {config['family']} NOT known")

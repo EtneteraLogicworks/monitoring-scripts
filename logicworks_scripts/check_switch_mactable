@@ -69,7 +69,7 @@ def main():
     check_snmp_args(config)
     dataset = {}
 
-    if config["family"] == "3COM":
+    if config["family"] == "1920":
         cpu = ObjectType(
             ObjectIdentity("HH3C-ENTITY-EXT-MIB", "hh3cEntityExtMacAddressCount", 1)
         )
@@ -82,7 +82,7 @@ def main():
         unknown_exit(SERVICE, err)
     add_vars_to_dataset(dataset, raw_data)
 
-    if config["family"] == "3COM":
+    if config["family"] == "1920":
         dataset["number_of_records"] = int(dataset["hh3cEntityExtMacAddressCount"])
     else:
         unknown_exit(SERVICE, f"Switch family {config['family']} NOT known")
