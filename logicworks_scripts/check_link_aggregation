@@ -12,6 +12,7 @@ from pysnmp.hlapi import ObjectIdentity, ObjectType, SnmpEngine
 from logicworks_monitoring_lib import (
     add_common_snmp_args,
     add_vars_to_dataset,
+    check_snmp_args,
     get_snmp_data,
     report,
     unknown_exit,
@@ -118,7 +119,9 @@ def get_port_aggregation_flags(config, interface_info, interface, snmp_engine):
     )
 
     try:
-        raw_data = get_snmp_data(config, port_aggregation_state, snmp_engine=snmp_engine)
+        raw_data = get_snmp_data(
+            config, port_aggregation_state, snmp_engine=snmp_engine
+        )
     except ValueError as err:
         unknown_exit(SERVICE, err)
     add_vars_to_dataset(
@@ -132,7 +135,9 @@ def get_port_aggregation_group(config, interface_info, interface, snmp_engine):
         ObjectIdentity("LAG-MIB", "dot3adAggPortSelectedAggID", interface)
     )
     try:
-        raw_data = get_snmp_data(config, port_aggregation_group, snmp_engine=snmp_engine)
+        raw_data = get_snmp_data(
+            config, port_aggregation_group, snmp_engine=snmp_engine
+        )
     except ValueError as err:
         unknown_exit(SERVICE, err)
     add_vars_to_dataset(interface_info[-1], raw_data, "dot3adAggPortSelectedAggID")
@@ -153,6 +158,7 @@ def main():
     )
 
     config = vars(parser.parse_args())
+    check_snmp_args(config)
 
     interface_info = []
     snmp_engine = SnmpEngine()

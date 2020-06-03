@@ -65,6 +65,19 @@ def add_common_snmp_args(parser):
     )
 
 
+def check_snmp_args(config):
+    """Basic check for missing SNMP related options"""
+    if not config["community"]:
+        if (
+            not config["user"]
+            or not config["authpassword"]
+            or not config["privpassword"]
+        ):
+            raise ValueError(
+                "Argument error: Missing SNMP community or SNMPv3 authentication options"
+            )
+
+
 def add_vars_to_dataset(dataset, var_binds, item_description="", raw_output=False):
     """Parse single SNMP response"""
 

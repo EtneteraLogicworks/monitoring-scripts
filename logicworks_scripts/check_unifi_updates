@@ -15,6 +15,7 @@ from pysnmp.hlapi import ObjectIdentity, ObjectType
 from logicworks_monitoring_lib import (
     add_common_snmp_args,
     add_vars_to_dataset,
+    check_snmp_args,
     get_snmp_data,
     report,
     unknown_exit,
@@ -109,6 +110,7 @@ def main():
     add_common_snmp_args(parser)
 
     config = vars(parser.parse_args())
+    check_snmp_args(config)
 
     dataset = {}
 
