@@ -90,7 +90,7 @@ def add_vars_to_dataset(dataset, var_binds, item_description="", raw_output=Fals
     else:
         for var_bind in var_binds:
             var, value = [x.prettyPrint() for x in var_bind]
-            match_key = re.search(f"::({item_description}.*)[.]", var)
+            match_key = re.search(f"::({item_description}[^.]*)[.]", var)
             if match_key:
                 dataset[match_key.group(1)] = value
 
@@ -101,7 +101,7 @@ def add_table_to_dataset(dataset, raw_data, item_description=""):
         dataset.append({})
         for var_bind in item:
             interface_id, val = [x.prettyPrint() for x in var_bind]
-            column_match = re.search(f"::({item_description}.*)[.]", interface_id)
+            column_match = re.search(f"::({item_description}[^.]*)[.]", interface_id)
             if column_match:
                 dataset[-1][column_match.group(1)] = val
 
