@@ -125,11 +125,15 @@ def set_snmp_security_protocols(config):
     return priv_protocol, auth_protocol
 
 
-def prepare_authdata(config):
+def prepare_authdata(config, snmpversion="2c"):
     """Prapare authentication data object for various SNMP versions"""
     # SNMP v1 and v2c
     if config["community"]:
-        authdata = CommunityData(config["community"])
+        if snmpversion == "2c":
+           model = 1
+        elif snmpversion == "1":
+           model = 0
+        authdata = CommunityData(config["community"], mpModel=model)
     # SNMP v3
     else:
         priv_protocol, auth_protocol = set_snmp_security_protocols(config)
@@ -144,10 +148,10 @@ def prepare_authdata(config):
     return authdata
 
 
-def get_snmp_data(config, *args, snmp_engine=SnmpEngine()):
+def get_snmp_data(config, *args, snmp_engine=SnmpEngine(), snmpversion="2c"):
     """Retrieve necessary data via SNMP"""
 
-    authdata = prepare_authdata(config)
+    authdata = prepare_authdata(config, snmpversion)
 
     target = UdpTransportTarget((config["host"], config["port"]))
 
@@ -164,10 +168,10 @@ def get_snmp_data(config, *args, snmp_engine=SnmpEngine()):
     return var_binds
 
 
-def get_snmp_table_data(config, *args, snmp_engine=SnmpEngine()):
+def get_snmp_table_data(config, *args, snmp_engine=SnmpEngine(), snmpversion="2c"):
     """Retrieve necessary data via SNMP"""
 
-    authdata = prepare_authdata(config)
+    authdata = prepare_authdata(config, snmpversion)
 
     target = UdpTransportTarget((config["host"], config["port"]))
 
