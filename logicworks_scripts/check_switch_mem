@@ -70,7 +70,9 @@ def generate_output(config, dataset):
 def calculcate_usage(dataset):
     """Calculate missing usage values"""
     if not dataset.get("memory_usage"):
-        dataset["memory_usage"] = int(dataset["mem_free"] / dataset["mem_total"] * 100)
+        dataset["memory_usage"] = 100 - int(
+            dataset["mem_free"] / dataset["mem_total"] * 100
+        )
 
     if not dataset.get("mem_free"):
         dataset["mem_free"] = int(dataset["mem_total"] * dataset["memory_usage"] / 100)
@@ -101,8 +103,7 @@ def main():
     parser.add_argument(
         "-f",
         "--family",
-        default="HP",
-        help="Switch family. Supported families: HP, 3COM",
+        help="Switch family. Supported families: 1920, 1920S, EdgeSwitchXP",
     )
 
     config = vars(parser.parse_args())
@@ -125,11 +126,15 @@ def main():
         mem2 = ObjectType(
             ObjectIdentity("HH3C-ENTITY-EXT-MIB", "hh3cEntityExtMemUsage", 8)
         )
+    elif config["family"] == "EdgeSwitchXP":
+        mem1 = ObjectType(ObjectIdentity("FROGFOOT-RESOURCES-MIB", "memTotal", 0))
+        mem2 = ObjectType(ObjectIdentity("FROGFOOT-RESOURCES-MIB", "memFree", 0))
     else:
         unknown_exit(SERVICE, f"Switch family {config['family']} NOT known")
 
     try:
-        raw_data = get_snmp_data(config, mem1, mem2)
+        snmpversion = "1" if config["family"] == "EdgeSwitchXP" else "2c"
+        raw_data = get_snmp_data(config, mem1, mem2, snmpversion=snmpversion)
     except ValueError as err:
         unknown_exit(SERVICE, err)
     add_vars_to_dataset(dataset, raw_data)
@@ -140,6 +145,9 @@ def main():
     elif config["family"] == "1920":
         dataset["mem_total"] = int(int(dataset["hh3cEntityExtMemSize"]) / 1000)
         dataset["memory_usage"] = int(dataset["hh3cEntityExtMemUsage"])
+    elif config["family"] == "EdgeSwitchXP":
+        dataset["mem_total"] = int(dataset["memTotal"])
+        dataset["mem_free"] = int(dataset["memFree"])
     else:
         unknown_exit(SERVICE, f"Switch family {config['family']} NOT known")
 

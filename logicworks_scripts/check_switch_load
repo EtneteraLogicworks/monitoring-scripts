@@ -111,7 +111,7 @@ def main():
         "-c", "--critical", default="0.9,0.8,0.7", help="Critical load thresholds",
     )
     parser.add_argument(
-        "-f", "--family", default="HP", help="Switch family. Supported families: HP",
+        "-f", "--family", help="Switch family. Supported families: 1920S, EdgeSwitchXP",
     )
 
     config = vars(parser.parse_args())
