@@ -13,9 +13,11 @@ from pysnmp.hlapi import ObjectIdentity, ObjectType
 
 from logicworks_monitoring_lib import (
     add_common_snmp_args,
+    add_table_to_dataset,
     add_vars_to_dataset,
     check_snmp_args,
     get_snmp_data,
+    get_snmp_table_data,
     report,
     unknown_exit,
 )
@@ -117,6 +119,7 @@ def main():
     dataset = {}
     dataset["load_warning"] = parse_threshold(config["warning"])
     dataset["load_critical"] = parse_threshold(config["critical"])
+    dataset2 = []
 
     if config["family"] == "1920S":
         cpu = ObjectType(
@@ -124,19 +127,31 @@ def main():
                 "HP-SWITCHING-MIB", "agentSwitchCpuProcessTotalUtilization", 0
             )
         )
+    elif config["family"] == "EdgeSwitchXP":
+        cpu = ObjectType(ObjectIdentity("FROGFOOT-RESOURCES-MIB", "loadValue"))
     else:
         unknown_exit(SERVICE, f"Switch family {config['family']} NOT known")
 
     try:
-        raw_data = get_snmp_data(config, cpu)
+        if config["family"] == "EdgeSwitchXP":
+            raw_data = get_snmp_table_data(config, cpu, snmpversion="1")
+            add_table_to_dataset(dataset2, raw_data)
+        else:
+            raw_data = get_snmp_data(config, cpu)
+            add_vars_to_dataset(dataset, raw_data)
     except ValueError as err:
         unknown_exit(SERVICE, err)
-    add_vars_to_dataset(dataset, raw_data)
 
     if config["family"] == "1920S":
         dataset["load"] = parse_hp_load(
             dataset["agentSwitchCpuProcessTotalUtilization"]
         )
+    elif config["family"] == "EdgeSwitchXP":
+        dataset["load"] = {
+            "load1": round(float("0." + dataset2[0]["loadValue"]), 2),
+            "load5": round(float("0." + dataset2[0]["loadValue"]), 2),
+            "load15": round(float("0." + dataset2[0]["loadValue"]), 2),
+        }
     else:
         unknown_exit(SERVICE, f"Switch family {config['family']} NOT known")
 
