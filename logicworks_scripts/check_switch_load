@@ -147,10 +147,11 @@ def main():
             dataset["agentSwitchCpuProcessTotalUtilization"]
         )
     elif config["family"] == "EdgeSwitchXP":
+        print(dataset2)
         dataset["load"] = {
-            "load1": round(float("0." + dataset2[0]["loadValue"]), 1),
-            "load5": round(float("0." + dataset2[0]["loadValue"]), 2),
-            "load15": round(float("0." + dataset2[0]["loadValue"]), 3),
+            "load1": round(float("0." + dataset2[0]["loadValue"]), 2),
+            "load5": round(float("0." + dataset2[1]["loadValue"]), 2),
+            "load15": round(float("0." + dataset2[2]["loadValue"]), 2),
         }
     else:
         unknown_exit(SERVICE, f"Switch family {config['family']} NOT known")
