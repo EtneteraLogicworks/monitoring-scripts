@@ -148,9 +148,9 @@ def main():
         )
     elif config["family"] == "EdgeSwitchXP":
         dataset["load"] = {
-            "load1": round(float("0." + dataset2[0]["loadValue"]), 2),
+            "load1": round(float("0." + dataset2[0]["loadValue"]), 1),
             "load5": round(float("0." + dataset2[0]["loadValue"]), 2),
-            "load15": round(float("0." + dataset2[0]["loadValue"]), 2),
+            "load15": round(float("0." + dataset2[0]["loadValue"]), 3),
         }
     else:
         unknown_exit(SERVICE, f"Switch family {config['family']} NOT known")
