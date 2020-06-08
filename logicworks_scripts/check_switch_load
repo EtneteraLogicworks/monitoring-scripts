@@ -147,7 +147,6 @@ def main():
             dataset["agentSwitchCpuProcessTotalUtilization"]
         )
     elif config["family"] == "EdgeSwitchXP":
-        print(dataset2)
         dataset["load"] = {
             "load1": round(float("0." + dataset2[0]["loadValue"]), 2),
             "load5": round(float("0." + dataset2[1]["loadValue"]), 2),
