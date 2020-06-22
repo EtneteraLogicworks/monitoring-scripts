@@ -155,7 +155,10 @@ def main():
     except ValueError as err:
         unknown_exit(SERVICE, err)
     add_vars_to_dataset(dataset, raw_data)
-    dataset["sanitazed_model"] = re.sub("[a-zA-Z]", "", dataset["modelName"])
+
+    model_match = re.search("([0-9]+[+A-Za-z]*$)", dataset["modelName"])
+    if model_match:
+        dataset["sanitazed_model"] = model_match.group(1)
 
     parse_update_state(dataset)
     try:
