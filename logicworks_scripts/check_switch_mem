@@ -3,7 +3,6 @@
 
 Script checks switch memory usage.
 Information is retrieved via SNMPv3 using pysnmp library.
-Currently tested with HP 1920S (HP family) and HP 1920 (3COM family)
 """
 
 import argparse
@@ -103,7 +102,8 @@ def main():
     parser.add_argument(
         "-f",
         "--family",
-        help="Switch family. Supported families: 1920, 1920S, EdgeSwitchXP",
+        required=True,
+        help="Switch family. Supported families: 1910, 1920, 1920S, EdgeSwitchXP",
     )
 
     config = vars(parser.parse_args())
@@ -119,7 +119,7 @@ def main():
         mem2 = ObjectType(
             ObjectIdentity("HP-SWITCHING-MIB", "agentSwitchCpuProcessMemFree", 0)
         )
-    elif config["family"] == "1920":
+    elif config["family"] in ["1910", "1920"]:
         mem1 = ObjectType(
             ObjectIdentity("HH3C-ENTITY-EXT-MIB", "hh3cEntityExtMemSize", 8)
         )
@@ -142,7 +142,7 @@ def main():
     if config["family"] == "1920S":
         dataset["mem_total"] = int(dataset["agentSwitchCpuProcessMemAvailable"])
         dataset["mem_free"] = int(dataset["agentSwitchCpuProcessMemFree"])
-    elif config["family"] == "1920":
+    elif config["family"] in ["1910", "1920"]:
         dataset["mem_total"] = int(int(dataset["hh3cEntityExtMemSize"]) / 1000)
         dataset["memory_usage"] = int(dataset["hh3cEntityExtMemUsage"])
     elif config["family"] == "EdgeSwitchXP":

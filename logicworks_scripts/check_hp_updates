@@ -26,7 +26,7 @@ from logicworks_monitoring_lib import (
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
 SERVICE = "HP UPDATE"
-SUPPORTED_SWITCH_FAMILY = ["1920-16G", "1920-24G", "1920S", "1810", "1820"]
+SUPPORTED_SWITCH_FAMILY = ["1810", "1820", "1910-24G", "1920-16G", "1920-24G", "1920S"]
 
 
 DOWNLOAD_WEBPAGE = "https://h10145.www1.hpe.com/downloads/SoftwareReleases.aspx"
@@ -162,20 +162,27 @@ def get_system_information(config, dataset):
         unknown_exit(SERVICE, f"Unsupported Hardware: {dataset['sysDescr']}")
 
     # Find information based on type
-    if dataset["type"] in ["1920-16G", "1920-24G"]:
+    if dataset["type"] in ["1910-24G", "1920-16G", "1920-24G"]:
+        if dataset["type"] == "1910-24G":
+            dataset["model_number"] = "JE006A"
         if dataset["type"] == "1920-16G":
             dataset["model_number"] = "JG923A"
         if dataset["type"] == "1920-24G":
             dataset["model_number"] = "JG924A"
         description_match = re.search(
-            "Version ([0-9]+[.][0-9]+)[.][0-9]+, Release ([0-9]+)", dataset["sysDescr"]
+            "Version ([0-9]+[.][0-9]+).*, Release ([0-9A-Z]+)", dataset["sysDescr"]
         )
         if description_match:
             dataset["version"] = description_match.group(1)
             dataset["release"] = description_match.group(2)
-            dataset[
-                "installed_version"
-            ] = f"{dataset['type']}-{dataset['model_number']}{dataset['version']}.R{dataset['release']}"
+            if dataset["type"] == "1910-24G":
+                dataset[
+                    "installed_version"
+                ] = f"1910_{dataset['version']}.R{dataset['release']}"
+            else:
+                dataset[
+                    "installed_version"
+                ] = f"{dataset['type']}-{dataset['model_number']}{dataset['version']}.R{dataset['release']}"
         else:
             unknown_exit(SERVICE, "Unable to get installed firmware version")
 
@@ -224,7 +231,7 @@ def main():
         find_version_from_jsdatafile(dataset)
         # Fallback query
         # find_version_from_web(dataset)
-    elif dataset["type"] in ["1810", "1920-16G", "1920-24G"]:
+    elif dataset["type"] in ["1810", "1910-24G", "1920-16G", "1920-24G"]:
         find_version_from_web(dataset)
 
     if "latest_version" not in dataset:

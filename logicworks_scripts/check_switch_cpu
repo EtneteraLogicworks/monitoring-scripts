@@ -84,8 +84,8 @@ def main():
     parser.add_argument(
         "-f",
         "--family",
-        default="HP",
-        help="Switch family. Supported families: HP, 3COM",
+        required=True,
+        help="Switch family. Supported families: 1910, 1920, 1920S",
     )
 
     config = vars(parser.parse_args())
@@ -100,7 +100,7 @@ def main():
                 "HP-SWITCHING-MIB", "agentSwitchCpuProcessTotalUtilization", 0
             )
         )
-    elif config["family"] == "1920":
+    elif config["family"] in ["1910", "1920"]:
         cpu = ObjectType(
             ObjectIdentity("HH3C-ENTITY-EXT-MIB", "hh3cEntityExtCpuUsage", 8)
         )
@@ -117,7 +117,7 @@ def main():
         dataset["cpu_usage"] = get_hp_cpu_usage(
             dataset["agentSwitchCpuProcessTotalUtilization"]
         )
-    elif config["family"] == "1920":
+    elif config["family"] in ["1910", "1920"]:
         dataset["cpu_usage"] = int(dataset["hh3cEntityExtCpuUsage"])
     else:
         unknown_exit(SERVICE, f"Switch family {config['family']} NOT known")

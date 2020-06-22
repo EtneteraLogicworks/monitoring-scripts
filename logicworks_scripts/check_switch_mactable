@@ -3,7 +3,6 @@
 
 Script checks switch MAC table number of record.
 Information is retrieved via SNMPv3 using pysnmp library.
-Currently tested with HP 1920 (3COM family)
 """
 
 import argparse
@@ -61,15 +60,15 @@ def main():
     parser.add_argument(
         "-f",
         "--family",
-        default="3COM",
-        help="Switch family. Supported families: 3COM",
+        required=True,
+        help="Switch family. Supported families: 1910, 1920",
     )
 
     config = vars(parser.parse_args())
     check_snmp_args(config)
     dataset = {}
 
-    if config["family"] == "1920":
+    if config["family"] in ["1910", "1920"]:
         cpu = ObjectType(
             ObjectIdentity("HH3C-ENTITY-EXT-MIB", "hh3cEntityExtMacAddressCount", 1)
         )
@@ -82,7 +81,7 @@ def main():
         unknown_exit(SERVICE, err)
     add_vars_to_dataset(dataset, raw_data)
 
-    if config["family"] == "1920":
+    if config["family"] in ["1910", "1920"]:
         dataset["number_of_records"] = int(dataset["hh3cEntityExtMacAddressCount"])
     else:
         unknown_exit(SERVICE, f"Switch family {config['family']} NOT known")
