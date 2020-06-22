@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""check_unifi_updates
+"""check_hp_updates
 
 Script checks if HP switch device firmware is up to date.
-Currently tested only with 1920S switches.
 Installed firmware version is retrieved via SNMPv3 using pysnmp library.
 Latest available firmware version is retrieved via HP JavaScript datafile (See HPE_DATAFILE)
 """
@@ -27,7 +26,7 @@ from logicworks_monitoring_lib import (
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
 SERVICE = "HP UPDATE"
-SUPPORTED_SWITCH_FAMILY = ["1920-24G", "1920S", "1810", "1820"]
+SUPPORTED_SWITCH_FAMILY = ["1920-16G", "1920-24G", "1920S", "1810", "1820"]
 
 
 DOWNLOAD_WEBPAGE = "https://h10145.www1.hpe.com/downloads/SoftwareReleases.aspx"
@@ -163,22 +162,25 @@ def get_system_information(config, dataset):
         unknown_exit(SERVICE, f"Unsupported Hardware: {dataset['sysDescr']}")
 
     # Find information based on type
-    if dataset["type"] == "1920-24G":
-        dataset["model_number"] = "JG924A"
+    if dataset["type"] in ["1920-16G", "1920-24G"]:
+        if dataset["type"] == "1920-16G":
+            dataset["model_number"] = "JG923A"
+        if dataset["type"] == "1920-24G":
+            dataset["model_number"] = "JG924A"
         description_match = re.search(
-            f"Version ([0-9]+[.][0-9]+)[.][0-9]+, Release ([0-9]+)", dataset["sysDescr"]
+            "Version ([0-9]+[.][0-9]+)[.][0-9]+, Release ([0-9]+)", dataset["sysDescr"]
         )
         if description_match:
             dataset["version"] = description_match.group(1)
             dataset["release"] = description_match.group(2)
             dataset[
                 "installed_version"
-            ] = f"1920-24G-JG924A_{dataset['version']}.R{dataset['release']}"
+            ] = f"{dataset['type']}-{dataset['model_number']}{dataset['version']}.R{dataset['release']}"
         else:
             unknown_exit(SERVICE, "Unable to get installed firmware version")
 
     elif dataset["type"] in ["1820", "1920S"]:
-        description_match = re.search(f"[^,]* ([^,]*), ([^,]*),", dataset["sysDescr"])
+        description_match = re.search("[^,]* ([^,]*), ([^,]*),", dataset["sysDescr"])
         if description_match:
             dataset["model_number"] = description_match.group(1)
             dataset["installed_version"] = description_match.group(2)
@@ -222,7 +224,7 @@ def main():
         find_version_from_jsdatafile(dataset)
         # Fallback query
         # find_version_from_web(dataset)
-    elif dataset["type"] in ["1810", "1920-24G"]:
+    elif dataset["type"] in ["1810", "1920-16G", "1920-24G"]:
         find_version_from_web(dataset)
 
     if "latest_version" not in dataset:
